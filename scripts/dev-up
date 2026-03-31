@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+compose_file="$repo_root/docker/compose.dev.yml"
+
+docker compose -f "$compose_file" up -d --build
+
+echo "Waiting for Nextcloud to finish installing..."
+ready=0
+for _ in {1..60}; do
+  if docker compose -f "$compose_file" exec -T --user www-data nextcloud php occ status >/dev/null 2>&1; then
+    ready=1
+    break
+  fi
+  sleep 2
+done
+
+if [[ "$ready" -ne 1 ]]; then
+  echo "Nextcloud did not become ready in time." >&2
+  exit 1
+fi
+
+docker compose -f "$compose_file" exec -T --user www-data nextcloud php occ app:enable --force ainascontrolplane >/dev/null
+
+echo "Nextcloud: http://localhost:8080"
+echo "aiNAS control plane: http://localhost:3001"
