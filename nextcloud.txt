@@ -1,0 +1,31 @@
+# the plan
+
+- use nextcloud as a package
+- dont fork nextcloud
+
+- generate next-app 'app' using the generator thing / app template (https://github.com/nextcloud/app_template)
+-  create an exApps and put business logic in there 
+
+- nextloud's exap model is designed for dockerized external servcices and suports all languages/framrworks
+- has btoh manual0install and docker-install for normal deployment
+
+
+aiNAS/
+docker/
+  compose.dev.yml
+  nextcloud/
+  CADDY/gdmFuaWxsYSBOZXh0Y2xvdWQgaW4gRG9ja2VyIGZvciBsb2NhbCBkZXYuCiAgMi4gR2VuZXJhdGUgb25lIHJlZ3VsYXIgYXBwIGZyb20gdGhlIGFwcCBnZW5lcmF0b3IuCiAgMy4gQWRkIG9uZSBFeEFwcCBza2VsZXRvbiBpbW1lZGlhdGVseSBmb3IgYnVzaW5lc3MgbG9naWMuCiAgNC4gS2VlcCB0aGUgcmVndWxhciBhcHAgdGhpbiBhbmQgcHVzaCBkb21haW4gbG9naWMgb3V0d2FyZC4KICA1LiBEZWxheSBkZXNrdG9wL2lPUyBmb3JrcyB1bnRpbCB5b3VyIHNlcnZlciBwcm9kd4WN0IGlzIHNvbGlkLg==
+apps/
+  ainas-controlplane/ #generate from nextcloud tempalte
+exapps/
+  sharing-service/ #golang/python
+  policy-service/
+  indexing service?
+packages/
+  contracts/ #openapi+shared types
+
+
+1. Stand up vanilla Nextcloud in Docker for local dev.
+2. Generate one regular app from the app generator
+3. Add one ExApp skeleton immediately for business logic
+4. Keep the regular app thin and push domain logic outward
