@@ -1,0 +1,15 @@
+{
+  "name": "ainas",
+  "private": true,
+  "packageManager": "npm@10.9.7",
+  "workspaces": [
+    "packages/*",
+    "exapps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @ainas/contracts && npm run build --workspace @ainas/control-plane",
+    "typecheck": "npm run typecheck --workspace @ainas/contracts && npm run typecheck --workspace @ainas/control-plane",
+    "dev:control-plane": "npm run dev --workspace @ainas/control-plane"
+  }
+}
+
