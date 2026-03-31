@@ -9,12 +9,13 @@
 - nextloud's exap model is designed for dockerized external servcices and suports all languages/framrworks
 - has btoh manual0install and docker-install for normal deployment
 
+# basic non-verified structure off the top of my head
 
 aiNAS/
 docker/
   compose.dev.yml
   nextcloud/
-  CADDY/gdmFuaWxsYSBOZXh0Y2xvdWQgaW4gRG9ja2VyIGZvciBsb2NhbCBkZXYuCiAgMi4gR2VuZXJhdGUgb25lIHJlZ3VsYXIgYXBwIGZyb20gdGhlIGFwcCBnZW5lcmF0b3IuCiAgMy4gQWRkIG9uZSBFeEFwcCBza2VsZXRvbiBpbW1lZGlhdGVseSBmb3IgYnVzaW5lc3MgbG9naWMuCiAgNC4gS2VlcCB0aGUgcmVndWxhciBhcHAgdGhpbiBhbmQgcHVzaCBkb21haW4gbG9naWMgb3V0d2FyZC4KICA1LiBEZWxheSBkZXNrdG9wL2lPUyBmb3JrcyB1bnRpbCB5b3VyIHNlcnZlciBwcm9kd4WN0IGlzIHNvbGlkLg==
+  CADDY/
 apps/
   ainas-controlplane/ #generate from nextcloud tempalte
 exapps/
