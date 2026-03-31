@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ainas.local/schemas/control-plane-version.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "service",
+    "version",
+    "apiVersion"
+  ],
+  "properties": {
+    "service": {
+      "const": "control-plane"
+    },
+    "version": {
+      "type": "string"
+    },
+    "apiVersion": {
+      "const": "v1"
+    }
+  }
+}
+

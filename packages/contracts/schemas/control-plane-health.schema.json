@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ainas.local/schemas/control-plane-health.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "service",
+    "status",
+    "timestamp",
+    "uptimeSeconds",
+    "nextcloud"
+  ],
+  "properties": {
+    "service": {
+      "const": "control-plane"
+    },
+    "status": {
+      "const": "ok"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "uptimeSeconds": {
+      "type": "number"
+    },
+    "nextcloud": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "configured",
+        "baseUrl",
+        "provider"
+      ],
+      "properties": {
+        "configured": {
+          "type": "boolean"
+        },
+        "baseUrl": {
+          "type": "string"
+        },
+        "provider": {
+          "const": "nextcloud"
+        }
+      }
+    }
+  }
+}
+
