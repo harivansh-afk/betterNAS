@@ -1,0 +1,75 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: nextcloud
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nextcloud -d nextcloud"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - redis-data:/data
+
+  control-plane:
+    build:
+      context: ..
+      dockerfile: exapps/control-plane/Dockerfile
+    environment:
+      PORT: 3000
+      AINAS_VERSION: local-dev
+      NEXTCLOUD_BASE_URL: http://nextcloud
+    ports:
+      - "3001:3000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3000/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  nextcloud:
+    image: nextcloud:31-apache
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      control-plane:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: nextcloud
+      REDIS_HOST: redis
+      NEXTCLOUD_ADMIN_USER: admin
+      NEXTCLOUD_ADMIN_PASSWORD: admin
+      AINAS_CONTROL_PLANE_URL: http://control-plane:3000
+    ports:
+      - "8080:80"
+    volumes:
+      - nextcloud-data:/var/www/html
+      - ../apps/ainas-controlplane:/var/www/html/custom_apps/ainascontrolplane
+
+volumes:
+  nextcloud-data:
+  postgres-data:
+  redis-data:
+
