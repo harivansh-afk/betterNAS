@@ -1,0 +1,17 @@
+{
+  "name": "ainas/ainascontrolplane",
+  "description": "aiNAS Nextcloud shell app",
+  "license": "AGPL-3.0-or-later",
+  "autoload": {
+    "psr-4": {
+      "OCA\\AinasControlplane\\": "lib/"
+    }
+  },
+  "require": {
+    "php": "^8.1"
+  },
+  "require-dev": {
+    "nextcloud/ocp": "dev-stable31"
+  }
+}
+
