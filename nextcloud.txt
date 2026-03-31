@@ -29,3 +29,13 @@ packages/
 2. Generate one regular app from the app generator
 3. Add one ExApp skeleton immediately for business logic
 4. Keep the regular app thin and push domain logic outward
+
+# charlie's thoughts
+
+file storage everywhere:
+- you have one NAS storage source, e.g. like some workstation wtih storage, a nas device etc. 
+- you want to have that be your computer, but your computer everywhere; e.g. open your mac similra to icloud drive on finder there's also your nas personal storage that also is an option  
+- some sort of boot option where you can mount filesytem? you can do that with your nas is your default mac, or you can do it like dropbox where it's just a separate folder that you can `cd` into (support both).
+- need google-drive like ui for upload/download files
+- share files with rbac (if hosted on some subdomain for example) 
+- ios app
