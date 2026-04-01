@@ -7,27 +7,28 @@ import (
 )
 
 type appConfig struct {
-	version            string
-	nextcloudBaseURL   string
-	statePath          string
-	clientToken        string
-	nodeBootstrapToken string
-	davAuthSecret      string
-	davCredentialTTL   time.Duration
+	version             string
+	nextcloudBaseURL    string
+	statePath           string
+	dbPath              string
+	clientToken         string
+	nodeBootstrapToken  string
+	davAuthSecret       string
+	davCredentialTTL    time.Duration
+	sessionTTL          time.Duration
+	registrationEnabled bool
+	corsOrigin          string
 }
 
 type app struct {
 	startedAt time.Time
 	now       func() time.Time
 	config    appConfig
-	store     *memoryStore
+	store     store
 }
 
 func newApp(config appConfig, startedAt time.Time) (*app, error) {
 	config.clientToken = strings.TrimSpace(config.clientToken)
-	if config.clientToken == "" {
-		return nil, errors.New("client token is required")
-	}
 
 	config.nodeBootstrapToken = strings.TrimSpace(config.nodeBootstrapToken)
 	if config.nodeBootstrapToken == "" {
@@ -42,7 +43,13 @@ func newApp(config appConfig, startedAt time.Time) (*app, error) {
 		return nil, errors.New("dav credential ttl must be greater than 0")
 	}
 
-	store, err := newMemoryStore(config.statePath)
+	var s store
+	var err error
+	if config.dbPath != "" {
+		s, err = newSQLiteStore(config.dbPath)
+	} else {
+		s, err = newMemoryStore(config.statePath)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +58,7 @@ func newApp(config appConfig, startedAt time.Time) (*app, error) {
 		startedAt: startedAt,
 		now:       time.Now,
 		config:    config,
-		store:     store,
+		store:     s,
 	}, nil
 }
 
@@ -162,6 +169,12 @@ type cloudProfileRequest struct {
 type exportContext struct {
 	export storageExport
 	node   nasNode
+}
+
+type user struct {
+	ID        string `json:"id"`
+	Username  string `json:"username"`
+	CreatedAt string `json:"createdAt"`
 }
 
 func copyStringPointer(value *string) *string {

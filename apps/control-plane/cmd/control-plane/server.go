@@ -33,6 +33,10 @@ func (a *app) handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", a.handleHealth)
 	mux.HandleFunc("GET /version", a.handleVersion)
+	mux.HandleFunc("POST /api/v1/auth/register", a.handleAuthRegister)
+	mux.HandleFunc("POST /api/v1/auth/login", a.handleAuthLogin)
+	mux.HandleFunc("POST /api/v1/auth/logout", a.handleAuthLogout)
+	mux.HandleFunc("GET /api/v1/auth/me", a.handleAuthMe)
 	mux.HandleFunc("POST /api/v1/nodes/register", a.handleNodeRegister)
 	mux.HandleFunc("POST /api/v1/nodes/{nodeId}/heartbeat", a.handleNodeHeartbeat)
 	mux.HandleFunc("PUT /api/v1/nodes/{nodeId}/exports", a.handleNodeExports)
@@ -40,7 +44,12 @@ func (a *app) handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/mount-profiles/issue", a.handleMountProfileIssue)
 	mux.HandleFunc("POST /api/v1/cloud-profiles/issue", a.handleCloudProfileIssue)
 
-	return mux
+	var handler http.Handler = mux
+	if a.config.corsOrigin != "" {
+		handler = corsMiddleware(a.config.corsOrigin, handler)
+	}
+
+	return handler
 }
 
 func (a *app) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -891,14 +900,161 @@ func writeJSON(w http.ResponseWriter, statusCode int, payload any) {
 	}
 }
 
+// --- auth handlers ---
+
+type authRegisterRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type authLoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type authLoginResponse struct {
+	Token string `json:"token"`
+	User  user   `json:"user"`
+}
+
+func (a *app) handleAuthRegister(w http.ResponseWriter, r *http.Request) {
+	if !a.config.registrationEnabled {
+		http.Error(w, "registration is disabled", http.StatusForbidden)
+		return
+	}
+
+	var request authRegisterRequest
+	if err := decodeJSON(w, r, &request); err != nil {
+		writeDecodeError(w, err)
+		return
+	}
+
+	username := strings.TrimSpace(request.Username)
+	if len(username) < 3 || len(username) > 64 {
+		http.Error(w, "username must be between 3 and 64 characters", http.StatusBadRequest)
+		return
+	}
+	if len(request.Password) < 8 {
+		http.Error(w, "password must be at least 8 characters", http.StatusBadRequest)
+		return
+	}
+
+	u, err := a.store.createUser(username, request.Password)
+	if err != nil {
+		if errors.Is(err, errUsernameTaken) {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sessionTTL := a.config.sessionTTL
+	if sessionTTL <= 0 {
+		sessionTTL = 720 * time.Hour
+	}
+	token, err := a.store.createSession(u.ID, sessionTTL)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, authLoginResponse{Token: token, User: u})
+}
+
+func (a *app) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
+	var request authLoginRequest
+	if err := decodeJSON(w, r, &request); err != nil {
+		writeDecodeError(w, err)
+		return
+	}
+
+	u, err := a.store.authenticateUser(strings.TrimSpace(request.Username), request.Password)
+	if err != nil {
+		http.Error(w, "invalid username or password", http.StatusUnauthorized)
+		return
+	}
+
+	sessionTTL := a.config.sessionTTL
+	if sessionTTL <= 0 {
+		sessionTTL = 720 * time.Hour
+	}
+	token, err := a.store.createSession(u.ID, sessionTTL)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, authLoginResponse{Token: token, User: u})
+}
+
+func (a *app) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
+	token, ok := bearerToken(r)
+	if !ok {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	_ = a.store.deleteSession(token)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *app) handleAuthMe(w http.ResponseWriter, r *http.Request) {
+	token, ok := bearerToken(r)
+	if !ok {
+		writeUnauthorized(w)
+		return
+	}
+
+	u, err := a.store.validateSession(token)
+	if err != nil {
+		writeUnauthorized(w)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, u)
+}
+
+// --- CORS ---
+
+func corsMiddleware(allowedOrigin string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Access-Control-Max-Age", "86400")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// --- client auth ---
+
 func (a *app) requireClientAuth(w http.ResponseWriter, r *http.Request) bool {
 	presentedToken, ok := bearerToken(r)
-	if !ok || !secureStringEquals(a.config.clientToken, presentedToken) {
+	if !ok {
 		writeUnauthorized(w)
 		return false
 	}
 
-	return true
+	// Session-based auth (SQLite).
+	if _, err := a.store.validateSession(presentedToken); err == nil {
+		return true
+	}
+
+	// Fall back to static client token for backwards compatibility.
+	if a.config.clientToken != "" && secureStringEquals(a.config.clientToken, presentedToken) {
+		return true
+	}
+
+	writeUnauthorized(w)
+	return false
 }
 
 func (a *app) authorizeNodeRegistration(w http.ResponseWriter, r *http.Request, machineID string) bool {

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -481,6 +482,30 @@ func copyStorageExport(export storageExport) storageExport {
 		CapacityBytes: copyInt64Pointer(export.CapacityBytes),
 		Tags:          copyStringSlice(export.Tags),
 	}
+}
+
+// --- user auth stubs (memory store does not support user auth) ---
+
+var errAuthNotSupported = errors.New("user auth requires SQLite database (set BETTERNAS_CONTROL_PLANE_DB_PATH)")
+
+func (s *memoryStore) createUser(_ string, _ string) (user, error) {
+	return user{}, errAuthNotSupported
+}
+
+func (s *memoryStore) authenticateUser(_ string, _ string) (user, error) {
+	return user{}, errAuthNotSupported
+}
+
+func (s *memoryStore) createSession(_ string, _ time.Duration) (string, error) {
+	return "", errAuthNotSupported
+}
+
+func (s *memoryStore) validateSession(_ string) (user, error) {
+	return user{}, errAuthNotSupported
+}
+
+func (s *memoryStore) deleteSession(_ string) error {
+	return errAuthNotSupported
 }
 
 func newOpaqueToken() (string, error) {
