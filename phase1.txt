@@ -1,9 +1,9 @@
 betterNAS repo
-  │ apps/ainas-controlplane                                                    
+  │ apps/betternascontrolplane                                                    
   │   PHP Nextcloud app                                                        
   │   - nav entry: "betterNAS"                                                     
-  │   - page route: /index.php/apps/ainascontrolplane/                       
-  │   - OCS route:  /ocs/v2.php/apps/ainascontrolplane/api/status           
+  │   - page route: /index.php/apps/betternascontrolplane/                       
+  │   - OCS route:  /ocs/v2.php/apps/betternascontrolplane/api/status           
   │   - job today: call control-plane and render a thin shell                 
   │
   │ exapps/control-plane                                        

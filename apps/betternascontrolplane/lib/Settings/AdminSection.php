@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace OCA\AinasControlplane\Settings;
+namespace OCA\BetterNasControlplane\Settings;
 
-use OCA\AinasControlplane\AppInfo\Application;
+use OCA\BetterNasControlplane\AppInfo\Application;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\Settings\IIconSection;

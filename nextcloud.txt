@@ -17,7 +17,7 @@ docker/
   nextcloud/
   CADDY/
 apps/
-  ainas-controlplane/ #generate from nextcloud tempalte
+  betternascontrolplane/ #generate from nextcloud tempalte
 exapps/
   sharing-service/ #golang/python
   policy-service/

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace OCA\AinasControlplane\Service;
+namespace OCA\BetterNasControlplane\Service;
 
-use OCA\AinasControlplane\AppInfo\Application;
+use OCA\BetterNasControlplane\AppInfo\Application;
 use OCP\IAppConfig;
 
 class ControlPlaneConfig {
@@ -14,7 +14,7 @@ class ControlPlaneConfig {
 	}
 
 	public function getBaseUrl(): string {
-		$environmentUrl = getenv('AINAS_CONTROL_PLANE_URL');
+		$environmentUrl = getenv('BETTERNAS_CONTROL_PLANE_URL');
 		if (is_string($environmentUrl) && $environmentUrl !== '') {
 			return rtrim($environmentUrl, '/');
 		}

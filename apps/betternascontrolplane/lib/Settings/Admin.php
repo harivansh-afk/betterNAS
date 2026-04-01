@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace OCA\AinasControlplane\Settings;
+namespace OCA\BetterNasControlplane\Settings;
 
-use OCA\AinasControlplane\AppInfo\Application;
-use OCA\AinasControlplane\Service\ControlPlaneClient;
-use OCA\AinasControlplane\Service\ControlPlaneConfig;
+use OCA\BetterNasControlplane\AppInfo\Application;
+use OCA\BetterNasControlplane\Service\ControlPlaneClient;
+use OCA\BetterNasControlplane\Service\ControlPlaneConfig;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\Settings\ISettings;
 

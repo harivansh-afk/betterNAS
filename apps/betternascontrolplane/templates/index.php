@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use OCA\AinasControlplane\AppInfo\Application;
+use OCA\BetterNasControlplane\AppInfo\Application;
 use OCP\Util;
 
-Util::addStyle(Application::APP_ID, 'ainascontrolplane');
+Util::addStyle(Application::APP_ID, 'betternascontrolplane');
 
 $snapshot = $_['snapshot'];
 $version = $snapshot['version']['version'] ?? 'unreachable';
@@ -13,17 +13,17 @@ $status = !empty($snapshot['available']) ? 'Connected' : 'Unavailable';
 $error = $snapshot['error'] ?? null;
 ?>
 
-<div class="ainas-shell">
-	<div class="ainas-shell__hero">
-		<p class="ainas-shell__eyebrow">betterNAS inside Nextcloud</p>
-		<h1 class="ainas-shell__title"><?php p($_['appName']); ?></h1>
-		<p class="ainas-shell__copy">
+<div class="betternas-shell">
+	<div class="betternas-shell__hero">
+		<p class="betternas-shell__eyebrow">betterNAS inside Nextcloud</p>
+		<h1 class="betternas-shell__title"><?php p($_['appName']); ?></h1>
+		<p class="betternas-shell__copy">
 			This shell app stays intentionally thin. It exposes betterNAS entry points inside Nextcloud and delegates business logic to the external control-plane service.
 		</p>
 	</div>
 
-	<div class="ainas-shell__grid">
-		<section class="ainas-shell__card">
+	<div class="betternas-shell__grid">
+		<section class="betternas-shell__card">
 			<h2>Control plane</h2>
 			<dl>
 				<dt>Configured URL</dt>
@@ -34,11 +34,11 @@ $error = $snapshot['error'] ?? null;
 				<dd><?php p($version); ?></dd>
 			</dl>
 			<?php if ($error !== null): ?>
-				<p class="ainas-shell__error"><?php p($error); ?></p>
+				<p class="betternas-shell__error"><?php p($error); ?></p>
 			<?php endif; ?>
 		</section>
 
-		<section class="ainas-shell__card">
+		<section class="betternas-shell__card">
 			<h2>Boundary</h2>
 			<ul>
 				<li>Nextcloud provides file and client primitives.</li>

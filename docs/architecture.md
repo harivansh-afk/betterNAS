@@ -6,7 +6,7 @@ betterNAS treats Nextcloud as an upstream backend, not as the place where better
 
 That leads to three explicit boundaries:
 
-1. `apps/ainas-controlplane/` is a thin shell inside Nextcloud.
+1. `apps/betternascontrolplane/` is a thin shell inside Nextcloud.
 2. `exapps/control-plane/` owns betterNAS business logic and internal APIs.
 3. `packages/contracts/` defines the interface between the shell app and the control plane.
 

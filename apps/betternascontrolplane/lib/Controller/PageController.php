@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace OCA\AinasControlplane\Controller;
+namespace OCA\BetterNasControlplane\Controller;
 
-use OCA\AinasControlplane\AppInfo\Application;
-use OCA\AinasControlplane\Service\ControlPlaneClient;
-use OCA\AinasControlplane\Service\ControlPlaneConfig;
+use OCA\BetterNasControlplane\AppInfo\Application;
+use OCA\BetterNasControlplane\Service\ControlPlaneClient;
+use OCA\BetterNasControlplane\Service\ControlPlaneConfig;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;

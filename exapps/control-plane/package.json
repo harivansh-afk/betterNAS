@@ -1,5 +1,5 @@
 {
-  "name": "@ainas/control-plane",
+  "name": "@betternas/control-plane",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@ainas/contracts": "file:../../packages/contracts"
+    "@betternas/contracts": "file:../../packages/contracts"
   },
   "devDependencies": {
     "@types/node": "^22.18.6",

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\AinasControlplane\Service;
+namespace OCA\BetterNasControlplane\Service;
 
 use OCP\Http\Client\IClientService;
 use OCP\Http\Client\IResponse;
