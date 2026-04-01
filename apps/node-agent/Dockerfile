@@ -9,7 +9,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /out/node-agent ./cmd/node-agent
 FROM alpine:3.21
 
 WORKDIR /app
+RUN apk add --no-cache ca-certificates
 COPY --from=build /out/node-agent /usr/local/bin/node-agent
+ENV BETTERNAS_NODE_LISTEN_ADDRESS=:8090
 
 EXPOSE 8090
 CMD ["node-agent"]

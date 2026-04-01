@@ -1,46 +1,30 @@
 package main
 
 import (
+	"context"
 	"log"
-	"net/http"
 	"os"
-	"time"
+	"os/signal"
+	"syscall"
 
-	"golang.org/x/net/webdav"
+	"github.com/rathi/betternas/apps/node-agent/internal/nodeagent"
 )
 
 func main() {
-	port := env("PORT", "8090")
-	exportPath := env("BETTERNAS_EXPORT_PATH", ".")
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		_, _ = w.Write([]byte("ok\n"))
-	})
-
-	dav := &webdav.Handler{
-		Prefix:     "/dav",
-		FileSystem: webdav.Dir(exportPath),
-		LockSystem: webdav.NewMemLS(),
-	}
-	mux.Handle("/dav/", dav)
-
-	server := &http.Server{
-		Addr:              ":" + port,
-		Handler:           mux,
-		ReadHeaderTimeout: 5 * time.Second,
+	cfg, err := nodeagent.LoadConfigFromEnv()
+	if err != nil {
+		log.Fatalf("load node-agent config: %v", err)
 	}
 
-	log.Printf("betterNAS node agent serving %s on :%s", exportPath, port)
-	log.Fatal(server.ListenAndServe())
-}
-
-func env(key, fallback string) string {
-	value, ok := os.LookupEnv(key)
-	if !ok || value == "" {
-		return fallback
+	app, err := nodeagent.New(cfg, log.New(os.Stderr, "", log.LstdFlags))
+	if err != nil {
+		log.Fatalf("build node-agent app: %v", err)
 	}
 
-	return value
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := app.ListenAndServe(ctx); err != nil {
+		log.Fatalf("run node-agent: %v", err)
+	}
 }
