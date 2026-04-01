@@ -25,13 +25,25 @@ Run the repo acceptance loop with:
 pnpm verify
 ```
 
-## Agent loop
+## Runtime loop
 
-Bootstrap a clone-local environment with:
+Bootstrap clone-local runtime settings with:
 
 ```bash
 pnpm agent:bootstrap
 ```
+
+If `.env.agent` is missing, bootstrap writes clone-local defaults for this checkout.
+
+Bring the stack up, verify it, and tear it down with:
+
+```bash
+pnpm stack:up
+pnpm stack:verify
+pnpm stack:down --volumes
+```
+
+## Agent loop
 
 Run the full static and integration loop with:
 
