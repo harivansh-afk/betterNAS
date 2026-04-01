@@ -44,7 +44,7 @@ func main() {
 			"exportId":       "dev-export",
 			"protocol":       "webdav",
 			"displayName":    "Example export",
-			"mountUrl":       env("BETTERNAS_EXAMPLE_MOUNT_URL", "http://localhost:8090/dav"),
+			"mountUrl":       env("BETTERNAS_EXAMPLE_MOUNT_URL", "http://localhost:8090/dav/"),
 			"readonly":       false,
 			"credentialMode": "session-token",
 		})

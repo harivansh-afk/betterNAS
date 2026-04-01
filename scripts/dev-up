@@ -2,27 +2,28 @@
 
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-compose_file="$repo_root/infra/docker/compose.dev.yml"
+# shellcheck disable=SC1091
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/runtime-env.sh"
+
 app_source_dir="$repo_root/apps/nextcloud-app"
 
 nextcloud_occ() {
-  docker compose -f "$compose_file" exec -T --user www-data --workdir /var/www/html nextcloud php occ "$@"
+  compose exec -T --user www-data --workdir /var/www/html nextcloud php occ "$@"
 }
 
 nextcloud_is_installed() {
   nextcloud_occ status --output=json 2>/dev/null | grep -q '"installed":true'
 }
 
-docker compose -f "$compose_file" up -d --build
+compose up -d --build
 
-docker compose -f "$compose_file" exec -T --user root nextcloud sh -lc '
+compose exec -T --user root nextcloud sh -lc '
   mkdir -p /var/www/html/custom_apps/betternascontrolplane
   chown -R www-data:www-data /var/www/html/custom_apps
 '
 
-docker compose -f "$compose_file" cp "$app_source_dir/." nextcloud:/var/www/html/custom_apps/betternascontrolplane
-docker compose -f "$compose_file" exec -T --user root nextcloud sh -lc '
+compose cp "$app_source_dir/." nextcloud:/var/www/html/custom_apps/betternascontrolplane
+compose exec -T --user root nextcloud sh -lc '
   chown -R www-data:www-data /var/www/html/custom_apps/betternascontrolplane
 '
 
@@ -62,5 +63,8 @@ fi
 
 nextcloud_occ app:enable --force betternascontrolplane >/dev/null
 
-echo "Nextcloud: http://localhost:8080"
-echo "betterNAS control plane: http://localhost:3001"
+echo "Clone: $BETTERNAS_CLONE_NAME"
+echo "Nextcloud: $NEXTCLOUD_BASE_URL"
+echo "betterNAS control plane: http://localhost:$BETTERNAS_CONTROL_PLANE_PORT"
+echo "betterNAS node agent: http://localhost:$BETTERNAS_NODE_AGENT_PORT"
+echo "WebDAV mount URL: $BETTERNAS_EXAMPLE_MOUNT_URL"

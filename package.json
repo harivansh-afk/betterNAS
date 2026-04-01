@@ -9,6 +9,10 @@
     "format": "prettier --ignore-unknown --write . && turbo run format",
     "format:check": "prettier --ignore-unknown --check . && turbo run format:check",
     "check-types": "turbo run check-types",
+    "stack:up": "./scripts/dev-up",
+    "stack:down": "./scripts/dev-down",
+    "stack:verify": "./scripts/integration/verify-stack",
+    "clones:setup": "./scripts/setup-clones",
     "test": "turbo run test",
     "verify": "pnpm run guardrails && pnpm run format:check && turbo run lint check-types test build"
   },

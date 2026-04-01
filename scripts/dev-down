@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-compose_file="$repo_root/infra/docker/compose.dev.yml"
+# shellcheck disable=SC1091
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/runtime-env.sh"
 
 args=(down --remove-orphans)
 
@@ -11,4 +11,4 @@ if [[ "${1:-}" == "--volumes" ]]; then
   args+=(--volumes)
 fi
 
-docker compose -f "$compose_file" "${args[@]}"
+compose "${args[@]}"
