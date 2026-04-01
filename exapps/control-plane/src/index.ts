@@ -5,6 +5,6 @@ const config = loadConfig();
 const app = createApp(config);
 
 app.listen(config.port, "0.0.0.0", () => {
-  console.log(`aiNAS control plane listening on port ${config.port}`);
+  console.log(`betternas control plane listening on port ${config.port}`);
 });
 

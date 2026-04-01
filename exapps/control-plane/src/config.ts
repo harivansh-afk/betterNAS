@@ -14,7 +14,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
 
   return {
     port,
-    version: env.AINAS_VERSION ?? "0.1.0-dev",
+    version: env.betternas_VERSION ?? "0.1.0-dev",
     nextcloudBaseUrl: normalizeBaseUrl(env.NEXTCLOUD_BASE_URL ?? "http://nextcloud")
   };
 }

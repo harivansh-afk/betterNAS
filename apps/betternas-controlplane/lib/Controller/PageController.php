@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace OCA\AinasControlplane\Controller;
+namespace OCA\betternasControlplane\Controller;
 
-use OCA\AinasControlplane\AppInfo\Application;
-use OCA\AinasControlplane\Service\ControlPlaneClient;
-use OCA\AinasControlplane\Service\ControlPlaneConfig;
+use OCA\betternasControlplane\AppInfo\Application;
+use OCA\betternasControlplane\Service\ControlPlaneClient;
+use OCA\betternasControlplane\Service\ControlPlaneConfig;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -33,7 +33,7 @@ class PageController extends Controller {
 			Application::APP_ID,
 			'index',
 			[
-				'appName' => 'aiNAS Control Plane',
+				'appName' => 'betternas Control Plane',
 				'controlPlaneUrl' => $this->controlPlaneConfig->getBaseUrl(),
 				'snapshot' => $this->controlPlaneClient->fetchSnapshot(),
 			],

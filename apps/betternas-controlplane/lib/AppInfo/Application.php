@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\AinasControlplane\AppInfo;
+namespace OCA\betternasControlplane\AppInfo;
 
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;

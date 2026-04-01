@@ -2,19 +2,19 @@
 
 - [x] 1.1 Create the top-level repository structure for `docker/`, `apps/`, `exapps/`, `packages/`, `docs/`, and `scripts/`
 - [x] 1.2 Add a Docker Compose development stack for vanilla Nextcloud and its required backing services
-- [x] 1.3 Add the aiNAS control-plane service container to the local development stack
+- [x] 1.3 Add the betternas control-plane service container to the local development stack
 - [x] 1.4 Add repeatable developer scripts and documentation for booting and stopping the local stack
 
 ## 2. Nextcloud shell app scaffold
 
-- [x] 2.1 Generate the aiNAS Nextcloud app scaffold into `apps/betternas-controlplane/`
-- [x] 2.2 Configure the shell app with aiNAS branding, navigation entry points, and basic settings surface
-- [x] 2.3 Add an adapter layer in the shell app for calling aiNAS-owned service endpoints
+- [x] 2.1 Generate the betternas Nextcloud app scaffold into `apps/betternas-controlplane/`
+- [x] 2.2 Configure the shell app with betternas branding, navigation entry points, and basic settings surface
+- [x] 2.3 Add an adapter layer in the shell app for calling betternas-owned service endpoints
 - [x] 2.4 Verify the shell app installs and loads in the local Nextcloud runtime
 
 ## 3. Control-plane service scaffold
 
-- [x] 3.1 Scaffold the aiNAS control-plane service in `exapps/control-plane/`
+- [x] 3.1 Scaffold the betternas control-plane service in `exapps/control-plane/`
 - [x] 3.2 Add a minimal internal HTTP API surface with health and version endpoints
 - [x] 3.3 Create a dedicated Nextcloud adapter boundary inside the service for backend integrations
 - [x] 3.4 Wire local service configuration so the shell app can discover and call the control-plane service

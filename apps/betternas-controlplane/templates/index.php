@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use OCA\AinasControlplane\AppInfo\Application;
+use OCA\betternasControlplane\AppInfo\Application;
 use OCP\Util;
 
 Util::addStyle(Application::APP_ID, 'betternascontrolplane');
@@ -15,10 +15,10 @@ $error = $snapshot['error'] ?? null;
 
 <div class="betternas-shell">
 	<div class="betternas-shell__hero">
-		<p class="betternas-shell__eyebrow">aiNAS inside Nextcloud</p>
+		<p class="betternas-shell__eyebrow">betternas inside Nextcloud</p>
 		<h1 class="betternas-shell__title"><?php p($_['appName']); ?></h1>
 		<p class="betternas-shell__copy">
-			This shell app stays intentionally thin. It exposes aiNAS entry points inside Nextcloud and delegates business logic to the external control-plane service.
+			This shell app stays intentionally thin. It exposes betternas entry points inside Nextcloud and delegates business logic to the external control-plane service.
 		</p>
 	</div>
 
@@ -42,7 +42,7 @@ $error = $snapshot['error'] ?? null;
 			<h2>Boundary</h2>
 			<ul>
 				<li>Nextcloud provides file and client primitives.</li>
-				<li>aiNAS owns control-plane policy and orchestration.</li>
+				<li>betternas owns control-plane policy and orchestration.</li>
 				<li>The shell app only adapts between the two.</li>
 			</ul>
 		</section>

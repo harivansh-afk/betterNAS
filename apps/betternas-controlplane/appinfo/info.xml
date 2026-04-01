@@ -2,13 +2,13 @@
 <info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
 	<id>betternascontrolplane</id>
-	<name>aiNAS Control Plane</name>
-	<summary>Thin aiNAS shell app for Nextcloud integration</summary>
-	<description>Provides aiNAS-branded entry points inside Nextcloud while delegating business logic to the aiNAS control plane.</description>
+	<name>betternas Control Plane</name>
+	<summary>Thin betternas shell app for Nextcloud integration</summary>
+	<description>Provides betternas-branded entry points inside Nextcloud while delegating business logic to the betternas control plane.</description>
 	<version>0.1.0</version>
 	<licence>AGPL-3.0-or-later</licence>
-	<author homepage="https://betternas.local">aiNAS</author>
-	<namespace>AinasControlplane</namespace>
+	<author homepage="https://betternas.local">betternas</author>
+	<namespace>betternasControlplane</namespace>
 	<category>integration</category>
 	<dependencies>
 		<nextcloud min-version="31" max-version="33"/>
@@ -16,15 +16,15 @@
 	<navigations>
 		<navigation>
 			<id>betternascontrolplane</id>
-			<name>aiNAS</name>
+			<name>betternas</name>
 			<route>betternascontrolplane.page.index</route>
 			<icon>app.svg</icon>
 			<type>link</type>
 		</navigation>
 	</navigations>
 	<settings>
-		<admin>OCA\AinasControlplane\Settings\Admin</admin>
-		<admin-section>OCA\AinasControlplane\Settings\AdminSection</admin-section>
+		<admin>OCA\betternasControlplane\Settings\Admin</admin>
+		<admin-section>OCA\betternasControlplane\Settings\AdminSection</admin-section>
 	</settings>
 </info>
 

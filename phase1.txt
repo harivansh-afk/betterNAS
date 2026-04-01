@@ -1,7 +1,7 @@
-aiNAS repo
+betternas repo
   │ apps/betternas-controlplane                                                    
   │   PHP Nextcloud app                                                        
-  │   - nav entry: "aiNAS"                                                     
+  │   - nav entry: "betternas"                                                     
   │   - page route: /index.php/apps/betternascontrolplane/                       
   │   - OCS route:  /ocs/v2.php/apps/betternascontrolplane/api/status           
   │   - job today: call control-plane and render a thin shell                 

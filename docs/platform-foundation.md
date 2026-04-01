@@ -1,14 +1,14 @@
-# aiNAS Platform Foundation
+# betternas Platform Foundation
 
-This document is the north-star planning artifact for the next phase of aiNAS.
+This document is the north-star planning artifact for the next phase of betternas.
 
-The scaffold phase is done. We now have a verified local Nextcloud runtime, a thin Nextcloud shell app, and a minimal aiNAS control-plane service. The next phase is about deciding what we will steal from Nextcloud, what we will own ourselves, and how the product should evolve without turning Nextcloud into the center of the system.
+The scaffold phase is done. We now have a verified local Nextcloud runtime, a thin Nextcloud shell app, and a minimal betternas control-plane service. The next phase is about deciding what we will steal from Nextcloud, what we will own ourselves, and how the product should evolve without turning Nextcloud into the center of the system.
 
 ## Product Stance
 
-aiNAS is not "a custom Nextcloud theme."
+betternas is not "a custom Nextcloud theme."
 
-aiNAS is a storage control plane with:
+betternas is a storage control plane with:
 - its own product semantics
 - its own API
 - its own web surface
@@ -19,13 +19,13 @@ Nextcloud remains valuable, but it is an upstream substrate and reference implem
 ## High-Level Model
 
 ```text
-                           aiNAS platform model
+                           betternas platform model
 
          users / browser / desktop / mobile / cli
                           |
                           v
                +--------------------------+
-               | aiNAS control plane      |
+               | betternas control plane      |
                |--------------------------|
                | identity                 |
                | workspaces               |
@@ -80,11 +80,11 @@ Nextcloud is also a strong source of reference implementations:
 
 The desktop client is especially high leverage because the official docs describe it as appearing as a dedicated location in the Finder sidebar, with offline controls, file previews, sharing, server-side actions, and automatic change detection.
 
-## What aiNAS Must Own
+## What betternas Must Own
 
 Even with heavy reuse, the product still needs its own control plane.
 
-aiNAS should own:
+betternas should own:
 - the domain model for users, devices, workspaces, storage sources, shares, policies, and mount profiles
 - the product API used by future web, desktop, and mobile surfaces
 - device and mount orchestration semantics
@@ -161,7 +161,7 @@ This mode should be treated as a later capability unless it becomes the immediat
 
 The working assumption for the next phase is:
 
-- aiNAS is the system of record for product semantics
+- betternas is the system of record for product semantics
 - Nextcloud is the upstream file/share/storage substrate
 
 This keeps the architecture clean and avoids accidentally letting the adapter become the product.
@@ -169,15 +169,15 @@ This keeps the architecture clean and avoids accidentally letting the adapter be
 ## Recommended Delivery Sequence
 
 1. Define the Nextcloud substrate we are officially adopting.
-2. Define the aiNAS control-plane domain model and API.
+2. Define the betternas control-plane domain model and API.
 3. Build the first real control-plane backend around Postgres and Redis.
 4. Build a standalone Next.js control-plane web app.
-5. Deepen the Nextcloud adapter so it mirrors aiNAS-owned semantics.
+5. Deepen the Nextcloud adapter so it mirrors betternas-owned semantics.
 6. Only then decide how much custom device and mount orchestration we need.
 
 ## Decision Matrix
 
-| Area | Use Nextcloud first | Own in aiNAS |
+| Area | Use Nextcloud first | Own in betternas |
 |---|---|---|
 | file and sharing web UX | yes | later, only if needed |
 | storage backend aggregation | yes | overlay policy, source catalog, and orchestration |
@@ -186,7 +186,7 @@ This keeps the architecture clean and avoids accidentally letting the adapter be
 | product API | no | yes |
 | device model | no | yes |
 | mount model | no | yes |
-| policy / RBAC semantics | baseline from Nextcloud is acceptable | real product semantics belong in aiNAS |
+| policy / RBAC semantics | baseline from Nextcloud is acceptable | real product semantics belong in betternas |
 | admin/control UI | partial in Nextcloud | full standalone control plane should be ours |
 
 ## Open Questions
@@ -195,7 +195,7 @@ These questions should be explicitly resolved in the next planning change:
 
 - Is v1 cloud-drive-first, mount-first, or hybrid?
 - Which storage backends are in scope first: SMB, S3, WebDAV, local, or all of them?
-- What should aiNAS identity own in v1 versus what should be delegated to Nextcloud users/groups?
+- What should betternas identity own in v1 versus what should be delegated to Nextcloud users/groups?
 - Should Nextcloud remain part of the end-user workflow in v1, or mostly act as a backend adapter?
 - When do we fork or brand the desktop and mobile clients, if ever?
 

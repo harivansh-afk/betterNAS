@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace OCA\AinasControlplane\Controller;
+namespace OCA\betternasControlplane\Controller;
 
-use OCA\AinasControlplane\AppInfo\Application;
-use OCA\AinasControlplane\Service\ControlPlaneClient;
+use OCA\betternasControlplane\AppInfo\Application;
+use OCA\betternasControlplane\Service\ControlPlaneClient;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\DataResponse;

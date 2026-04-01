@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use OCA\AinasControlplane\AppInfo\Application;
+use OCA\betternasControlplane\AppInfo\Application;
 use OCP\Util;
 
 Util::addStyle(Application::APP_ID, 'betternascontrolplane');
@@ -15,9 +15,9 @@ $version = $snapshot['version']['version'] ?? 'unreachable';
 <div class="betternas-shell betternas-shell--admin">
 	<div class="betternas-shell__hero">
 		<p class="betternas-shell__eyebrow">Admin settings</p>
-		<h1 class="betternas-shell__title">aiNAS control-plane wiring</h1>
+		<h1 class="betternas-shell__title">betternas control-plane wiring</h1>
 		<p class="betternas-shell__copy">
-			The local scaffold wires this app to the control plane through the <code>AINAS_CONTROL_PLANE_URL</code> environment variable in the Nextcloud container.
+			The local scaffold wires this app to the control plane through the <code>betternas_CONTROL_PLANE_URL</code> environment variable in the Nextcloud container.
 		</p>
 	</div>
 

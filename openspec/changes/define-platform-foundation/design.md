@@ -1,9 +1,9 @@
 ## Context
 
-aiNAS now has a verified local scaffold:
+betternas now has a verified local scaffold:
 - a stock Nextcloud runtime
-- a thin aiNAS app inside Nextcloud
-- a minimal aiNAS control-plane service
+- a thin betternas app inside Nextcloud
+- a minimal betternas control-plane service
 - shared contracts
 
 That scaffold proves the direction, but it does not yet answer the more important product questions. We need to decide what the actual backend is, what should remain delegated to Nextcloud, how the standalone product should take shape, and which work has the highest leverage.
@@ -14,7 +14,7 @@ The user goal is clear: build "file storage everywhere" with native-feeling acce
 
 **Goals**
 - Define which primitives we will adopt from Nextcloud versus own ourselves.
-- Define the aiNAS control plane as the long-term system of record for product semantics.
+- Define the betternas control plane as the long-term system of record for product semantics.
 - Define the first real backend domain at a high level.
 - Define the first standalone web product direction outside Nextcloud.
 - Define how device-native access fits into the architecture without forcing premature implementation.
@@ -27,9 +27,9 @@ The user goal is clear: build "file storage everywhere" with native-feeling acce
 
 ## Core Decisions
 
-### 1. aiNAS owns product semantics
+### 1. betternas owns product semantics
 
-aiNAS should be the system of record for:
+betternas should be the system of record for:
 - workspaces
 - devices
 - storage sources
@@ -54,20 +54,20 @@ Nextcloud is valuable because it already provides:
 - a desktop client with Finder integration
 - a mobile app
 
-aiNAS should deliberately reuse those primitives where they reduce time-to-product, while keeping product-specific logic outside of Nextcloud.
+betternas should deliberately reuse those primitives where they reduce time-to-product, while keeping product-specific logic outside of Nextcloud.
 
 Rationale:
 - highest leverage path
 - strongest reference implementations
 - avoids rebuilding low-differentiation components too early
 
-### 3. The control plane should remain a standalone aiNAS service
+### 3. The control plane should remain a standalone betternas service
 
-The current ExApp-compatible service is useful, but the long-term shape should be a standalone aiNAS backend that happens to have a Nextcloud adapter, not a backend that is conceptually trapped inside the AppAPI/ExApp model.
+The current ExApp-compatible service is useful, but the long-term shape should be a standalone betternas backend that happens to have a Nextcloud adapter, not a backend that is conceptually trapped inside the AppAPI/ExApp model.
 
 Rationale:
 - the control plane should be reusable by future standalone clients
-- aiNAS will likely want richer event, device, and auth flows than a pure Nextcloud extension mindset encourages
+- betternas will likely want richer event, device, and auth flows than a pure Nextcloud extension mindset encourages
 - keeping the service standalone reduces accidental architectural lock-in
 
 ### 4. Start with one modular backend service
@@ -128,13 +128,13 @@ Rationale:
 ## High-Level Architecture
 
 ```text
-                         aiNAS target architecture
+                         betternas target architecture
 
              browser / desktop / mobile / cli
                             |
                             v
                 +---------------------------+
-                | aiNAS control plane       |
+                | betternas control plane       |
                 |---------------------------|
                 | identity + sessions       |
                 | workspaces                |
@@ -208,10 +208,10 @@ This is intentionally high level. The exact path layout, auth model, and payload
 
 ## Risks / Trade-offs
 
-- If we let Nextcloud users/groups become the permanent product identity model, aiNAS will be harder to evolve independently.
+- If we let Nextcloud users/groups become the permanent product identity model, betternas will be harder to evolve independently.
 - If we overbuild the control plane before deciding which Nextcloud primitives we are actually keeping, we may duplicate useful substrate capabilities unnecessarily.
 - If we force a custom device agent too early, we may spend time on native integration before proving the backend and product semantics.
-- If we defer too much ownership to Nextcloud, the product may never fully become aiNAS.
+- If we defer too much ownership to Nextcloud, the product may never fully become betternas.
 
 ## Sequencing
 
@@ -229,5 +229,5 @@ Recommended change sequence:
 - Is v1 cloud-drive-first, mount-first, or explicitly hybrid?
 - Which storage backends are in scope first?
 - How much identity should be delegated to Nextcloud in v1?
-- Should end users interact directly with Nextcloud in v1, or mostly through aiNAS surfaces?
+- Should end users interact directly with Nextcloud in v1, or mostly through betternas surfaces?
 - When, if ever, should the desktop or mobile clients be branded or forked?

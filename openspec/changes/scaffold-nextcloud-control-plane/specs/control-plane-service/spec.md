@@ -1,18 +1,18 @@
 ## ADDED Requirements
 
 ### Requirement: Dedicated control-plane service
-The system SHALL provide an aiNAS-owned control-plane service that is separate from the Nextcloud shell app and owns product domain logic.
+The system SHALL provide an betternas-owned control-plane service that is separate from the Nextcloud shell app and owns product domain logic.
 
-#### Scenario: aiNAS adds a new control-plane rule
+#### Scenario: betternas adds a new control-plane rule
 - **WHEN** a new business rule for storage policy, RBAC, orchestration, or future client behavior is introduced
 - **THEN** the rule MUST be implemented in the control-plane service rather than as primary logic inside the Nextcloud app
 
 ### Requirement: Client-agnostic internal API
-The control-plane service SHALL expose internal APIs that can be consumed by the Nextcloud shell app and future aiNAS clients without requiring direct coupling to Nextcloud internals.
+The control-plane service SHALL expose internal APIs that can be consumed by the Nextcloud shell app and future betternas clients without requiring direct coupling to Nextcloud internals.
 
-#### Scenario: New aiNAS client consumes control-plane behavior
-- **WHEN** aiNAS adds a web, desktop, or iOS surface outside Nextcloud
-- **THEN** that surface MUST be able to consume control-plane behavior through documented aiNAS service interfaces
+#### Scenario: New betternas client consumes control-plane behavior
+- **WHEN** betternas adds a web, desktop, or iOS surface outside Nextcloud
+- **THEN** that surface MUST be able to consume control-plane behavior through documented betternas service interfaces
 
 ### Requirement: Nextcloud backend adapter boundary
 The control-plane service SHALL isolate Nextcloud-specific integration at its boundary so that storage and sharing backends remain replaceable over time.

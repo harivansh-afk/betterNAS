@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\AinasControlplane\Service;
+namespace OCA\betternasControlplane\Service;
 
 use OCP\Http\Client\IClientService;
 use OCP\Http\Client\IResponse;
@@ -33,7 +33,7 @@ class ControlPlaneClient {
 				'version' => $versionResponse['body'],
 			];
 		} catch (\Throwable $exception) {
-			$this->logger->warning('Failed to reach aiNAS control plane', [
+			$this->logger->warning('Failed to reach betternas control plane', [
 				'exception' => $exception,
 				'url' => $baseUrl,
 			]);

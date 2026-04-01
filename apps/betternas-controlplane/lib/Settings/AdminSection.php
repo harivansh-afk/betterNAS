@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace OCA\AinasControlplane\Settings;
+namespace OCA\betternasControlplane\Settings;
 
-use OCA\AinasControlplane\AppInfo\Application;
+use OCA\betternasControlplane\AppInfo\Application;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\Settings\IIconSection;
@@ -21,7 +21,7 @@ class AdminSection implements IIconSection {
 	}
 
 	public function getName(): string {
-		return $this->l->t('aiNAS');
+		return $this->l->t('betternas');
 	}
 
 	public function getPriority(): int {
