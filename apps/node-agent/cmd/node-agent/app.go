@@ -169,6 +169,14 @@ func (a *app) handler() http.Handler {
 
 func (a *app) requireDAVAuth(mount exportMount, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// OPTIONS must bypass auth so the WebDAV handler can return its
+		// DAV: 1, 2 compliance header. macOS Finder sends an unauthenticated
+		// OPTIONS first and refuses to connect unless it sees that header.
+		if r.Method == http.MethodOptions {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		username, password, ok := r.BasicAuth()
 		if !ok {
 			writeDAVUnauthorized(w)
