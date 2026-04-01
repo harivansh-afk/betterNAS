@@ -35,8 +35,8 @@ betterNAS/
 
 ## Runtime and language choices
 
-| Part               | Language                           | Why                                                                  |
-| ------------------ | ---------------------------------- | -------------------------------------------------------------------- |
+| Part                 | Language                           | Why                                                                  |
+| -------------------- | ---------------------------------- | -------------------------------------------------------------------- |
 | `apps/web`           | TypeScript + Next.js               | best UI velocity, best admin/control-plane UX                        |
 | `apps/control-plane` | Go                                 | strong concurrency, static binaries, operationally simple            |
 | `apps/node-agent`    | Go                                 | best fit for host runtime, WebDAV service, and future Nix deployment |
@@ -47,10 +47,10 @@ betterNAS/
 
 The source of truth for shared interfaces is:
 
-1. [`docs/architecture.md`](/home/rathi/Documents/GitHub/betterNAS/docs/architecture.md)
-2. [`packages/contracts/openapi/betternas.v1.yaml`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts/openapi/betternas.v1.yaml)
-3. [`packages/contracts/schemas`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts/schemas)
-4. [`packages/contracts/src`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts/src)
+1. [`docs/architecture.md`](./docs/architecture.md)
+2. [`packages/contracts/openapi/betternas.v1.yaml`](./packages/contracts/openapi/betternas.v1.yaml)
+3. [`packages/contracts/schemas`](./packages/contracts/schemas)
+4. [`packages/contracts/src`](./packages/contracts/src)
 
 Agents must not invent private shared request or response shapes outside those
 locations.

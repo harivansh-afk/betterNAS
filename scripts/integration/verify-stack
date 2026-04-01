@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck disable=SC1091
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/runtime-env.sh"
+
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/wait-stack"
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/verify-webdav"
+
+control_health="$(curl -fsS "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/health")"
+echo "$control_health" | jq -e '.service == "control-plane" and .status == "ok"' >/dev/null
+
+register_response="$(
+  curl -fsS \
+    -X POST \
+    -H 'Content-Type: application/json' \
+    -d @- \
+    "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/nodes/register" <<JSON
+{"machineId":"${BETTERNAS_CLONE_NAME}-machine","displayName":"${BETTERNAS_CLONE_NAME} node","agentVersion":"${BETTERNAS_VERSION}","directAddress":"${BETTERNAS_NODE_DIRECT_ADDRESS}","relayAddress":null,"exports":[{"label":"integration","path":"${BETTERNAS_EXPORT_PATH}","protocols":["webdav"],"capacityBytes":null,"tags":["integration"]}]}
+JSON
+)"
+echo "$register_response" | jq -e '.status == "online"' >/dev/null
+
+mount_profile="$(
+  curl -fsS \
+    -X POST \
+    -H 'Content-Type: application/json' \
+    -d '{"userId":"integration-user","deviceId":"integration-device","exportId":"dev-export"}' \
+    "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/mount-profiles/issue"
+)"
+echo "$mount_profile" | jq -e --arg expected "$BETTERNAS_EXAMPLE_MOUNT_URL" '.protocol == "webdav" and .mountUrl == $expected' >/dev/null
+
+cloud_profile="$(
+  curl -fsS \
+    -X POST \
+    -H 'Content-Type: application/json' \
+    -d '{"userId":"integration-user","exportId":"dev-export","provider":"nextcloud"}' \
+    "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/cloud-profiles/issue"
+)"
+echo "$cloud_profile" | jq -e --arg expected "$NEXTCLOUD_BASE_URL" '.provider == "nextcloud" and .baseUrl == $expected' >/dev/null
+
+nextcloud_status="$(curl -fsS "${NEXTCLOUD_BASE_URL}/status.php")"
+echo "$nextcloud_status" | jq -e '.installed == true' >/dev/null
+
+nextcloud_app_status="$(
+  curl -fsS \
+    -u "${NEXTCLOUD_ADMIN_USER}:${NEXTCLOUD_ADMIN_PASSWORD}" \
+    -H 'OCS-APIRequest: true' \
+    "${NEXTCLOUD_BASE_URL}/ocs/v2.php/apps/betternascontrolplane/api/status"
+)"
+echo "$nextcloud_app_status" | jq -e '.ocs.meta.statuscode == 100' >/dev/null
+
+echo "Stack verified for ${BETTERNAS_CLONE_NAME}."

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# shellcheck disable=SC1091
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/runtime-env.sh"
+
+wait_for_url() {
+  local url="$1"
+  local label="$2"
+  local max_attempts="${3:-60}"
+
+  for _ in $(seq 1 "$max_attempts"); do
+    if curl -fsS "$url" >/dev/null 2>&1; then
+      echo "$label ready: $url"
+      return 0
+    fi
+    sleep 2
+  done
+
+  echo "$label did not become ready: $url" >&2
+  return 1
+}
+
+wait_for_url "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/health" "control plane"
+wait_for_url "http://localhost:${BETTERNAS_NODE_AGENT_PORT}/health" "node agent"
+wait_for_url "${NEXTCLOUD_BASE_URL}/status.php" "nextcloud"
