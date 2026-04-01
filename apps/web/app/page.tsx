@@ -1,18 +1,25 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Globe,
   HardDrives,
   LinkSimple,
+  SignOut,
   Warning,
-} from "@phosphor-icons/react/dist/ssr";
+} from "@phosphor-icons/react";
 import {
-  ControlPlaneConfigurationError,
-  ControlPlaneRequestError,
-  getControlPlaneConfig,
-  issueMountProfile,
+  isAuthenticated,
   listExports,
-  type MountProfile,
+  issueMountProfile,
+  logout,
+  getMe,
   type StorageExport,
-} from "@/lib/control-plane";
+  type MountProfile,
+  type User,
+  ApiError,
+} from "@/lib/api";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,79 +30,109 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { CopyField } from "./copy-field";
 
-export const dynamic = "force-dynamic";
+export default function Home() {
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [exports, setExports] = useState<StorageExport[]>([]);
+  const [selectedExportId, setSelectedExportId] = useState<string | null>(null);
+  const [mountProfile, setMountProfile] = useState<MountProfile | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-interface PageProps {
-  searchParams: Promise<{ exportId?: string | string[] }>;
-}
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace("/login");
+      return;
+    }
 
-export default async function Home({ searchParams }: PageProps) {
-  const resolvedSearchParams = await searchParams;
-  const selectedExportId = readSearchParam(resolvedSearchParams.exportId);
-  const controlPlaneConfig = await getControlPlaneConfig();
-
-  let exports: StorageExport[] = [];
-  let mountProfile: MountProfile | null = null;
-  let feedback: string | null = null;
-
-  try {
-    exports = await listExports();
-
-    if (selectedExportId !== null) {
-      if (exports.some((e) => e.id === selectedExportId)) {
-        mountProfile = await issueMountProfile(selectedExportId);
-      } else {
-        feedback = `Export "${selectedExportId}" was not found.`;
+    async function load() {
+      try {
+        const [me, exps] = await Promise.all([getMe(), listExports()]);
+        setUser(me);
+        setExports(exps);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        setFeedback(err instanceof Error ? err.message : "Failed to load");
+      } finally {
+        setLoading(false);
       }
     }
-  } catch (error) {
-    if (
-      error instanceof ControlPlaneConfigurationError ||
-      error instanceof ControlPlaneRequestError
-    ) {
-      feedback = error.message;
-    } else {
-      throw error;
+
+    load();
+  }, [router]);
+
+  async function handleSelectExport(exportId: string) {
+    setSelectedExportId(exportId);
+    setMountProfile(null);
+    setFeedback(null);
+
+    try {
+      const profile = await issueMountProfile(exportId);
+      setMountProfile(profile);
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : "Failed to issue mount profile");
     }
   }
 
-  const selectedExport =
-    selectedExportId === null
-      ? null
-      : (exports.find((e) => e.id === selectedExportId) ?? null);
+  async function handleLogout() {
+    await logout();
+    router.replace("/login");
+  }
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </main>
+    );
+  }
+
+  const selectedExport = selectedExportId
+    ? exports.find((e) => e.id === selectedExportId) ?? null
+    : null;
 
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6">
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              betterNAS
-            </p>
-            <h1 className="font-heading text-2xl font-semibold tracking-tight">
-              Control Plane
-            </h1>
+          <div className="flex items-start justify-between">
+            <div className="flex flex-col gap-1">
+              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                betterNAS
+              </p>
+              <h1 className="font-heading text-2xl font-semibold tracking-tight">
+                Control Plane
+              </h1>
+            </div>
+            {user && (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">
+                  {user.username}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                >
+                  <SignOut className="mr-1 size-4" />
+                  Sign out
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">
               <Globe data-icon="inline-start" />
-              {controlPlaneConfig.baseUrl ?? "Not configured"}
-            </Badge>
-            <Badge
-              variant={
-                controlPlaneConfig.clientToken !== null
-                  ? "secondary"
-                  : "destructive"
-              }
-            >
-              {controlPlaneConfig.clientToken !== null
-                ? "Bearer auth"
-                : "No token"}
+              {process.env.NEXT_PUBLIC_BETTERNAS_API_URL || "local"}
             </Badge>
             <Badge variant="secondary">
               {exports.length === 1 ? "1 export" : `${exports.length} exports`}
@@ -106,7 +143,7 @@ export default async function Home({ searchParams }: PageProps) {
         {feedback !== null && (
           <Alert variant="destructive">
             <Warning />
-            <AlertTitle>Configuration error</AlertTitle>
+            <AlertTitle>Error</AlertTitle>
             <AlertDescription>{feedback}</AlertDescription>
           </Alert>
         )}
@@ -141,11 +178,11 @@ export default async function Home({ searchParams }: PageProps) {
                     const isSelected = storageExport.id === selectedExportId;
 
                     return (
-                      <a
+                      <button
                         key={storageExport.id}
-                        href={`/?exportId=${encodeURIComponent(storageExport.id)}`}
+                        onClick={() => handleSelectExport(storageExport.id)}
                         className={cn(
-                          "flex flex-col gap-3 rounded-2xl border p-4 text-sm transition-colors",
+                          "flex flex-col gap-3 rounded-2xl border p-4 text-left text-sm transition-colors",
                           isSelected
                             ? "border-primary/20 bg-primary/5"
                             : "border-border hover:bg-muted/50",
@@ -191,7 +228,7 @@ export default async function Home({ searchParams }: PageProps) {
                             </dd>
                           </div>
                         </dl>
-                      </a>
+                      </button>
                     );
                   })}
                 </div>
@@ -278,7 +315,7 @@ export default async function Home({ searchParams }: PageProps) {
                     <ol className="flex flex-col gap-2">
                       {[
                         "Open Finder and choose Go, then Connect to Server.",
-                        `Paste the mount URL into the server address field.`,
+                        "Paste the mount URL into the server address field.",
                         "Enter the issued username and password when prompted.",
                         "Save to Keychain only if the credential expiry suits your workflow.",
                       ].map((step, index) => (
@@ -302,15 +339,4 @@ export default async function Home({ searchParams }: PageProps) {
       </div>
     </main>
   );
-}
-
-function readSearchParam(value: string | string[] | undefined): string | null {
-  if (typeof value === "string" && value.trim() !== "") {
-    return value.trim();
-  }
-  if (Array.isArray(value)) {
-    const first = value.find((v) => v.trim() !== "");
-    return first?.trim() ?? null;
-  }
-  return null;
 }

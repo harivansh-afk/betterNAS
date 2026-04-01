@@ -8,3 +8,4 @@ coverage/
 apps/web/.next/
 .env.agent
 .state/
+.vercel
