@@ -1,21 +1,21 @@
 ## Why
 
-aiNAS needs an initial architecture and repository scaffold that lets us build our own storage control plane without inheriting the maintenance cost of a Nextcloud core fork. We want to move quickly on product-specific business logic, but still stand on top of a mature backend for files, sync, sharing primitives, and existing clients.
+betterNAS needs an initial architecture and repository scaffold that lets us build our own storage control plane without inheriting the maintenance cost of a Nextcloud core fork. We want to move quickly on product-specific business logic, but still stand on top of a mature backend for files, sync, sharing primitives, and existing clients.
 
 ## What Changes
 
-- Create an initial aiNAS platform scaffold centered on vanilla Nextcloud running in Docker for local development.
-- Define a thin Nextcloud app shell that owns aiNAS-specific integration points, branded surfaces, and adapters into the Nextcloud backend.
-- Define a control-plane service boundary where aiNAS business logic, policy, and future orchestration will live outside the Nextcloud monolith.
+- Create an initial betterNAS platform scaffold centered on vanilla Nextcloud running in Docker for local development.
+- Define a thin Nextcloud app shell that owns betterNAS-specific integration points, branded surfaces, and adapters into the Nextcloud backend.
+- Define a control-plane service boundary where betterNAS business logic, policy, and future orchestration will live outside the Nextcloud monolith.
 - Establish a repository layout for Docker infrastructure, Nextcloud app code, ExApp/service code, and shared API contracts.
 - Document the decision to treat Nextcloud as an upstream backend dependency rather than a forked application baseline.
 
 ## Capabilities
 
 ### New Capabilities
-- `workspace-scaffold`: Repository structure and local development platform for running aiNAS with Nextcloud, service containers, and shared packages.
-- `nextcloud-shell-app`: Thin aiNAS app inside Nextcloud for navigation, settings, branded entry points, and backend integration hooks.
-- `control-plane-service`: External aiNAS service layer that owns business logic and exposes internal APIs used by the Nextcloud shell and future clients.
+- `workspace-scaffold`: Repository structure and local development platform for running betterNAS with Nextcloud, service containers, and shared packages.
+- `nextcloud-shell-app`: Thin betterNAS app inside Nextcloud for navigation, settings, branded entry points, and backend integration hooks.
+- `control-plane-service`: External betterNAS service layer that owns business logic and exposes internal APIs used by the Nextcloud shell and future clients.
 
 ### Modified Capabilities
 - None.

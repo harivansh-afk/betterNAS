@@ -1,12 +1,12 @@
-# aiNAS decision scaffold
+# betterNAS decision scaffold
 
                        STEAL NOW                     OWN NOW
                    -------------------         -------------------
-                   Nextcloud server            aiNAS control plane
-                   Nextcloud desktop           aiNAS product API
-                   Nextcloud iOS               aiNAS policy model
-                   Nextcloud external storage  aiNAS device model
-                   Nextcloud sharing UI        aiNAS mount model
+                   Nextcloud server            betterNAS control plane
+                   Nextcloud desktop           betterNAS product API
+                   Nextcloud iOS               betterNAS policy model
+                   Nextcloud external storage  betterNAS device model
+                   Nextcloud sharing UI        betterNAS mount model
 
                                           LATER
                                  -----------------------
@@ -20,10 +20,10 @@
      +--> Nextcloud web shell/app  --------\
      |     - login/session                 |
      |     - file/share UI                 |
-     |     - thin aiNAS entry page         |
+     |     - thin betterNAS entry page         |
      |     - OCS route                     |
      |                                     v
-     +--> Nextcloud desktop/iOS ----> aiNAS control plane ----> storage backends
+     +--> Nextcloud desktop/iOS ----> betterNAS control plane ----> storage backends
            - Finder presence             - devices               - NAS / SMB / S3
            - sync / virtual files        - policies              - NFS / WebDAV
            - mobile app                  - shares/mounts         - local/ZFS/etc

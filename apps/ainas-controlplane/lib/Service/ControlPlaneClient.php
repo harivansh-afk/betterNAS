@@ -33,7 +33,7 @@ class ControlPlaneClient {
 				'version' => $versionResponse['body'],
 			];
 		} catch (\Throwable $exception) {
-			$this->logger->warning('Failed to reach aiNAS control plane', [
+			$this->logger->warning('Failed to reach betterNAS control plane', [
 				'exception' => $exception,
 				'url' => $baseUrl,
 			]);

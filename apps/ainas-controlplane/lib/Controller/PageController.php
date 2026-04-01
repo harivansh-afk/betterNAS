@@ -33,7 +33,7 @@ class PageController extends Controller {
 			Application::APP_ID,
 			'index',
 			[
-				'appName' => 'aiNAS Control Plane',
+				'appName' => 'betterNAS Control Plane',
 				'controlPlaneUrl' => $this->controlPlaneConfig->getBaseUrl(),
 				'snapshot' => $this->controlPlaneClient->fetchSnapshot(),
 			],

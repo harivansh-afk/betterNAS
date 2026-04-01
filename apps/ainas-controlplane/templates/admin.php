@@ -15,7 +15,7 @@ $version = $snapshot['version']['version'] ?? 'unreachable';
 <div class="ainas-shell ainas-shell--admin">
 	<div class="ainas-shell__hero">
 		<p class="ainas-shell__eyebrow">Admin settings</p>
-		<h1 class="ainas-shell__title">aiNAS control-plane wiring</h1>
+		<h1 class="ainas-shell__title">betterNAS control-plane wiring</h1>
 		<p class="ainas-shell__copy">
 			The local scaffold wires this app to the control plane through the <code>AINAS_CONTROL_PLANE_URL</code> environment variable in the Nextcloud container.
 		</p>

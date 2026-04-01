@@ -11,7 +11,7 @@
 
 # basic non-verified structure off the top of my head
 
-aiNAS/
+betterNAS/
 docker/
   compose.dev.yml
   nextcloud/

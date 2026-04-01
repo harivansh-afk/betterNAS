@@ -21,7 +21,7 @@ class AdminSection implements IIconSection {
 	}
 
 	public function getName(): string {
-		return $this->l->t('aiNAS');
+		return $this->l->t('betterNAS');
 	}
 
 	public function getPriority(): int {
