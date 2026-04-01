@@ -23,8 +23,8 @@ class ControlPlaneClient {
 		$baseUrl = $this->controlPlaneConfig->getBaseUrl();
 
 		try {
-			$healthResponse = $this->request($baseUrl . '/health');
-			$versionResponse = $this->request($baseUrl . '/version');
+			$healthResponse = $this->requestObject($baseUrl . '/health');
+			$versionResponse = $this->requestObject($baseUrl . '/version');
 
 			return [
 				'available' => $healthResponse['statusCode'] === 200,
@@ -47,31 +47,87 @@ class ControlPlaneClient {
 	}
 
 	/**
+	 * @return array<string, mixed>|null
+	 */
+	public function fetchExport(string $exportId): ?array {
+		$baseUrl = $this->controlPlaneConfig->getBaseUrl();
+
+		try {
+			$exportsResponse = $this->requestList($baseUrl . '/api/v1/exports', true);
+		} catch (\Throwable $exception) {
+			$this->logger->warning('Failed to fetch betterNAS exports', [
+				'exception' => $exception,
+				'url' => $baseUrl,
+				'exportId' => $exportId,
+			]);
+
+			return null;
+		}
+
+		foreach ($exportsResponse['body'] as $export) {
+			if (!is_array($export)) {
+				continue;
+			}
+			if (($export['id'] ?? null) === $exportId) {
+				return $export;
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * @return array{statusCode: int, body: array<string, mixed>}
 	 */
-	private function request(string $url): array {
+	private function requestObject(string $url, bool $authenticated = false): array {
+		$response = $this->request($url, $authenticated);
+
+		return [
+			'statusCode' => $response->getStatusCode(),
+			'body' => $this->decodeObjectBody($response),
+		];
+	}
+
+	/**
+	 * @return array{statusCode: int, body: array<int, array<string, mixed>>}
+	 */
+	private function requestList(string $url, bool $authenticated = false): array {
+		$response = $this->request($url, $authenticated);
+
+		return [
+			'statusCode' => $response->getStatusCode(),
+			'body' => $this->decodeListBody($response),
+		];
+	}
+
+	private function request(string $url, bool $authenticated = false): IResponse {
+		$headers = [
+			'Accept' => 'application/json',
+		];
+		if ($authenticated) {
+			$apiToken = $this->controlPlaneConfig->getApiToken();
+			if ($apiToken === '') {
+				throw new \RuntimeException('Missing betterNAS control plane API token');
+			}
+
+			$headers['Authorization'] = 'Bearer ' . $apiToken;
+		}
+
 		$client = $this->clientService->newClient();
-		$response = $client->get($url, [
-			'headers' => [
-				'Accept' => 'application/json',
-			],
+		return $client->get($url, [
+			'headers' => $headers,
 			'http_errors' => false,
 			'timeout' => 2,
 			'nextcloud' => [
 				'allow_local_address' => true,
 			],
 		]);
-
-		return [
-			'statusCode' => $response->getStatusCode(),
-			'body' => $this->decodeBody($response),
-		];
 	}
 
 	/**
 	 * @return array<string, mixed>
 	 */
-	private function decodeBody(IResponse $response): array {
+	private function decodeObjectBody(IResponse $response): array {
 		$body = $response->getBody();
 		if ($body === '') {
 			return [];
@@ -84,5 +140,29 @@ class ControlPlaneClient {
 
 		return $decoded;
 	}
-}
 
+	/**
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function decodeListBody(IResponse $response): array {
+		$body = $response->getBody();
+		if ($body === '') {
+			return [];
+		}
+
+		$decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+		if (!is_array($decoded)) {
+			return [];
+		}
+
+		$exports = [];
+		foreach ($decoded as $export) {
+			if (!is_array($export)) {
+				continue;
+			}
+			$exports[] = $export;
+		}
+
+		return $exports;
+	}
+}

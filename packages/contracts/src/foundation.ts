@@ -6,6 +6,11 @@ export const FOUNDATION_API_ROUTES = {
   issueCloudProfile: "/api/v1/cloud-profiles/issue",
 } as const;
 
+export const FOUNDATION_API_HEADERS = {
+  authorization: "Authorization",
+  nodeToken: "X-BetterNAS-Node-Token",
+} as const;
+
 export type NasNodeStatus = "online" | "offline" | "degraded";
 export type StorageAccessProtocol = "webdav";
 export type AccessMode = "mount" | "cloud";
@@ -29,6 +34,7 @@ export interface StorageExport {
   nasNodeId: string;
   label: string;
   path: string;
+  mountPath?: string;
   protocols: StorageAccessProtocol[];
   capacityBytes: number | null;
   tags: string[];
@@ -64,6 +70,7 @@ export interface CloudProfile {
 export interface StorageExportInput {
   label: string;
   path: string;
+  mountPath?: string;
   protocols: StorageAccessProtocol[];
   capacityBytes: number | null;
   tags: string[];

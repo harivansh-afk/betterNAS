@@ -21,6 +21,9 @@ paths:
   /api/v1/nodes/register:
     post:
       operationId: registerNode
+      security:
+        - NodeBootstrapToken: []
+        - NodeToken: []
       requestBody:
         required: true
         content:
@@ -30,13 +33,22 @@ paths:
       responses:
         "200":
           description: Registered node
+          headers:
+            X-BetterNAS-Node-Token:
+              description: Returned when a node is first registered or migrated to node-scoped auth.
+              schema:
+                type: string
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/NasNode"
+        "401":
+          description: Unauthorized
   /api/v1/nodes/{nodeId}/heartbeat:
     post:
       operationId: recordNodeHeartbeat
+      security:
+        - NodeToken: []
       parameters:
         - in: path
           name: nodeId
@@ -52,9 +64,13 @@ paths:
       responses:
         "204":
           description: Heartbeat accepted
+        "401":
+          description: Unauthorized
   /api/v1/exports:
     get:
       operationId: listExports
+      security:
+        - ClientToken: []
       responses:
         "200":
           description: Export list
@@ -64,9 +80,13 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/StorageExport"
+        "401":
+          description: Unauthorized
   /api/v1/mount-profiles/issue:
     post:
       operationId: issueMountProfile
+      security:
+        - ClientToken: []
       requestBody:
         required: true
         content:
@@ -80,9 +100,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MountProfile"
+        "401":
+          description: Unauthorized
   /api/v1/cloud-profiles/issue:
     post:
       operationId: issueCloudProfile
+      security:
+        - ClientToken: []
       requestBody:
         required: true
         content:
@@ -96,7 +120,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CloudProfile"
+        "401":
+          description: Unauthorized
 components:
+  securitySchemes:
+    ClientToken:
+      type: http
+      scheme: bearer
+      description: Bearer token required for export listing and profile issuance.
+    NodeBootstrapToken:
+      type: http
+      scheme: bearer
+      description: Bearer token required to register a new node before it receives a node-scoped token.
+    NodeToken:
+      type: http
+      scheme: bearer
+      description: Bearer token scoped to a previously registered node.
   schemas:
     NasNode:
       type: object
@@ -149,6 +188,8 @@ components:
         label:
           type: string
         path:
+          type: string
+        mountPath:
           type: string
         protocols:
           type: array
@@ -222,6 +263,8 @@ components:
         label:
           type: string
         path:
+          type: string
+        mountPath:
           type: string
         protocols:
           type: array
