@@ -35,8 +35,8 @@ betterNAS/
 
 ## Runtime and language choices
 
-| Part                 | Language                           | Why                                                                  |
-| -------------------- | ---------------------------------- | -------------------------------------------------------------------- |
+| Part               | Language                           | Why                                                                  |
+| ------------------ | ---------------------------------- | -------------------------------------------------------------------- |
 | `apps/web`           | TypeScript + Next.js               | best UI velocity, best admin/control-plane UX                        |
 | `apps/control-plane` | Go                                 | strong concurrency, static binaries, operationally simple            |
 | `apps/node-agent`    | Go                                 | best fit for host runtime, WebDAV service, and future Nix deployment |
