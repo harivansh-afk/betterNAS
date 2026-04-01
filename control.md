@@ -43,3 +43,9 @@ Agent command surface:
 - main repo creates or refreshes sibling clones with `pnpm clones:setup`
 - each clone bootstraps itself with `pnpm agent:bootstrap`
 - each clone runs the full loop with `pnpm agent:verify`
+
+Agent prompts live in:
+
+- `docs/agents/runtime-agent.md`
+- `docs/agents/control-plane-agent.md`
+- `docs/agents/node-agent.md`

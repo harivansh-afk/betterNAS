@@ -51,8 +51,8 @@ if ! nextcloud_is_installed; then
     --database-host db \
     --database-user nextcloud \
     --database-pass nextcloud \
-    --admin-user admin \
-    --admin-pass admin \
+    --admin-user "$NEXTCLOUD_ADMIN_USER" \
+    --admin-pass "$NEXTCLOUD_ADMIN_PASSWORD" \
     --data-dir /var/www/html/data
 
   if ! nextcloud_is_installed; then

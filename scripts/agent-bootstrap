@@ -4,10 +4,11 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 env_file="$repo_root/.env.agent"
-example_env_file="$repo_root/.env.agent.example"
 
 if [[ ! -f "$env_file" ]]; then
-  cp "$example_env_file" "$env_file"
+  # shellcheck disable=SC1091
+  source "$repo_root/scripts/lib/agent-env.sh"
+  betternas_write_agent_env_file "$env_file" "$repo_root"
 fi
 
 # shellcheck disable=SC1091

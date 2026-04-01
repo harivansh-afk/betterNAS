@@ -7,6 +7,9 @@ compose_file="$repo_root/infra/docker/compose.dev.yml"
 default_env_file="$repo_root/.env.agent"
 env_file="${BETTERNAS_ENV_FILE:-$default_env_file}"
 
+# shellcheck disable=SC1091
+source "$repo_root/scripts/lib/agent-env.sh"
+
 if [[ -f "$env_file" ]]; then
   set -a
   # shellcheck disable=SC1090
@@ -14,11 +17,19 @@ if [[ -f "$env_file" ]]; then
   set +a
 fi
 
-: "${BETTERNAS_CLONE_NAME:=betternas-main}"
-: "${COMPOSE_PROJECT_NAME:=betternas-${BETTERNAS_CLONE_NAME}}"
-: "${BETTERNAS_CONTROL_PLANE_PORT:=3001}"
-: "${BETTERNAS_NODE_AGENT_PORT:=3090}"
-: "${BETTERNAS_NEXTCLOUD_PORT:=8080}"
+if [[ -z "${BETTERNAS_CLONE_NAME:-}" ]]; then
+  BETTERNAS_CLONE_NAME="$(betternas_default_clone_name "$repo_root")"
+fi
+
+COMPOSE_PROJECT_NAME="$(
+  betternas_resolve_compose_project_name "$repo_root" "${COMPOSE_PROJECT_NAME:-}" "$BETTERNAS_CLONE_NAME"
+)"
+
+read -r default_nextcloud_port default_node_agent_port default_control_plane_port <<<"$(betternas_default_ports "$repo_root" "$BETTERNAS_CLONE_NAME")"
+
+: "${BETTERNAS_CONTROL_PLANE_PORT:=$default_control_plane_port}"
+: "${BETTERNAS_NODE_AGENT_PORT:=$default_node_agent_port}"
+: "${BETTERNAS_NEXTCLOUD_PORT:=$default_nextcloud_port}"
 : "${BETTERNAS_VERSION:=local-dev}"
 : "${NEXTCLOUD_ADMIN_USER:=admin}"
 : "${NEXTCLOUD_ADMIN_PASSWORD:=admin}"
