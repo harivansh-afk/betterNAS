@@ -1,51 +1,51 @@
 # Control
 
-This clone is the main repo.
+This repo is the coordination and implementation ground for betterNAS.
 
 Use it for:
 
 - shared contracts
-- repo guardrails
+- architecture and planning docs
 - runtime scripts
-- integration verification
-- architecture and coordination
+- stack verification
+- implementation of the self-hosted stack
 
-Planned clone layout:
+## Current product focus
 
-```text
-/home/rathi/Documents/GitHub/betterNAS/
-  betterNAS
-  betterNAS-runtime
-  betterNAS-control
-  betterNAS-node
-```
+The default betterNAS product is:
 
-Clone roles:
+- self-hosted on the user's NAS
+- WebDAV-first
+- Finder-mountable
+- managed through a web control plane
 
-- `betterNAS`
-  - main coordination repo
-  - owns contracts, scripts, and shared verification rules
-- `betterNAS-runtime`
-  - owns Docker Compose, stack env, readiness checks, and end-to-end runtime verification
-- `betterNAS-control`
-  - owns the Go control plane and contract-backed API behavior
-- `betterNAS-node`
-  - owns the node agent, WebDAV serving, and NAS-side registration/export behavior
+The main parts are:
 
-Rules:
+- `node-service`
+  - `apps/node-agent`
+- `control-server`
+  - `apps/control-plane`
+- `web control plane`
+  - `apps/web`
+- `optional cloud adapter`
+  - `apps/nextcloud-app`
+
+## Rules
 
 - shared interface changes land in `packages/contracts` first
-- runtime verification must stay green in the main repo
-- feature agents should stay inside their assigned clone unless a contract change is required
+- `docs/architecture.md` is the canonical architecture contract
+- the self-hosted mount flow is the critical path
+- optional Nextcloud work must not drive the main architecture
 
-Agent command surface:
+## Command surface
 
-- main repo creates or refreshes sibling clones with `pnpm clones:setup`
-- each clone bootstraps itself with `pnpm agent:bootstrap`
-- each clone runs the full loop with `pnpm agent:verify`
-
-Agent prompts live in:
-
-- `docs/agents/runtime-agent.md`
-- `docs/agents/control-plane-agent.md`
-- `docs/agents/node-agent.md`
+- `pnpm verify`
+  - static verification
+- `pnpm stack:up`
+  - boot the self-hosted stack
+- `pnpm stack:verify`
+  - verify the working stack
+- `pnpm stack:down --volumes`
+  - tear the stack down cleanly
+- `pnpm agent:verify`
+  - bootstrap, verify, boot, and stack-verify in one loop

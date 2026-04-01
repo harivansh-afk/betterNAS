@@ -12,240 +12,151 @@ It answers four questions:
 ## The full system
 
 ```text
-                              betterNAS build plan
+                           self-hosted betterNAS
 
-                                 [2] control plane
-                         +--------------------------------+
-                         | API + policy + registry + UI   |
-                         +--------+---------------+-------+
-                                  |               |
-                     control/API  |               | cloud adapter
-                                  v               v
-                         [1] NAS node         [4] cloud/web layer
-                    +------------------+      +-------------------+
-                    | WebDAV + agent   |      | Nextcloud adapter |
-                    | real storage     |      | browser/mobile    |
-                    +---------+--------+      +---------+---------+
-                              |                         ^
-                              | mount profile           |
-                              v                         |
-                        [3] local device ---------------+
-                    +----------------------+
-                    | Finder mount/helper  |
-                    | native user entry    |
-                    +----------------------+
+                            [3] web control plane
+                    +--------------------------------+
+                    | onboarding / management / UX   |
+                    +---------------+----------------+
+                                    |
+                                    v
+                            [2] control-server
+                    +--------------------------------+
+                    | auth / nodes / exports         |
+                    | grants / mount profiles        |
+                    +---------------+----------------+
+                                    |
+                                    v
+                             [1] node-service
+                    +--------------------------------+
+                    | WebDAV + export runtime        |
+                    | real storage                   |
+                    +---------------+----------------+
+                                    ^
+                                    |
+                              [4] local device
+                    +--------------------------------+
+                    | browser + Finder mount         |
+                    +--------------------------------+
+
+ optional later:
+ - Nextcloud adapter
+ - hosted control plane
+ - hosted web UI
 ```
 
 ## The core rule
 
-The control plane owns product semantics.
+`control-server` owns product semantics.
 
 The other three parts are execution surfaces:
 
-- the NAS node serves storage
-- the local device mounts and uses storage
-- the cloud/web layer exposes storage through browser and mobile-friendly flows
+- `node-service` serves storage
+- `web control plane` exposes management and mount UX
+- `local device` consumes the issued mount flow
 
 ## What we steal vs write
 
-| Part            | Steal first                                                                                 | Write ourselves                                                                            |
-| --------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| NAS node        | NixOS/Nix module patterns, existing WebDAV servers                                          | node agent, export model, node registration flow                                           |
-| Control plane   | Go stdlib routing, pgx/sqlc, go-redis/asynq, OpenAPI codegen                                | product domain model, policy engine, mount/cloud APIs, registry                            |
-| Local device    | Finder WebDAV mount, macOS Keychain, later maybe launch agent patterns                      | helper app, mount profile handling, auto-mount UX                                          |
-| Cloud/web layer | Nextcloud server, Nextcloud shell app, Nextcloud share/file UI, Nextcloud mobile references | betterNAS integration layer, mapping between product model and Nextcloud, later branded UI |
+| Part              | Steal first                                                       | Write ourselves                                                     |
+| ----------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------- |
+| node-service      | Go WebDAV primitives, Docker packaging, later Nix module patterns | node runtime, export model, node enrollment                         |
+| control-server    | Go stdlib routing, pgx/sqlc, Redis helpers, OpenAPI codegen       | product domain model, policy engine, mount APIs, registry           |
+| web control plane | Next.js app conventions, shared UI primitives                     | product UI, onboarding, node/export flows, mount UX                 |
+| local device      | Finder WebDAV mount flow, macOS Keychain later                    | helper app or mount launcher later                                  |
+| optional adapter  | Nextcloud server and app template                                 | betterNAS mapping layer if we decide to keep a cloud/mobile surface |
 
 ## Where each part should start
 
-## 1. NAS node
+## 1. node-service
 
 Start from:
 
-- Nix flake / module
-- a standard WebDAV server
-- a very small agent process
+- one Go binary
+- one export root
+- one WebDAV surface
+- one deployable self-hosted runtime
 
 Do not start by writing:
 
-- custom storage protocol
-- custom file server
-- custom sync engine
+- a custom storage protocol
+- a custom sync engine
+- a complex relay stack
 
-The NAS node should be boring and reproducible.
-
-## 2. Control plane
+## 2. control-server
 
 Start from:
 
 - Go
-- standard library routing first
-- Postgres via `pgx` and `sqlc`
-- Redis via `go-redis`
-- OpenAPI-driven contracts
-- standalone API mindset
+- one API
+- one durable data model
+- node registration and mount profile issuance
 
 Do not start by writing:
 
 - microservices
-- custom file transport
-- a proxy that sits in the middle of every file transfer
+- file proxying by default
+- hosted-only assumptions
 
-This is the first real thing we should build.
-
-## 3. Local device
+## 3. web control plane
 
 Start from:
 
-- native Finder `Connect to Server`
-- WebDAV mount URLs issued by the control plane
+- sign in
+- list nodes and exports
+- show mount URL and mount instructions
+
+Do not start by writing:
+
+- a large browser file manager
+- a second backend hidden inside Next.js
+
+## 4. local device
+
+Start from:
+
+- Finder `Connect to Server`
+- WebDAV mount URL issued by `control-server`
 
 Then later add:
 
-- a lightweight helper app
+- one-click helper
 - Keychain integration
 - auto-mount at login
 
-Do not start by writing:
-
-- a full custom desktop sync client
-- a Finder extension
-- a new filesystem driver
-
-## 4. Cloud / web layer
-
-Start from:
-
-- stock Nextcloud
-- current shell app
-- Nextcloud browser/share/mobile primitives
-
-Then later add:
-
-- betterNAS-specific integration pages
-- standalone control-plane web UI
-- custom branding or replacement UI where justified
-
-Do not start by writing:
-
-- a full custom browser file manager
-- a custom mobile client
-- a custom sharing stack
-
 ## Recommended build order
 
-### Phase A: make the storage path real
+### Phase A: make the self-hosted mount path real
 
-1. NAS node can expose a directory over WebDAV
-2. control plane can register the node and its exports
-3. local device can mount that export in Finder
+1. node-service exposes a directory over WebDAV
+2. control-server registers the node and its exports
+3. web control plane shows the export and mount action
+4. local device mounts the export in Finder
 
-This is the shortest path to a real product loop.
+### Phase B: make the product real
 
-### Phase B: make the product model real
+1. add durable users, nodes, exports, grants, mount profiles
+2. add auth and token lifecycle
+3. add a proper web UI for admin and user control flows
 
-1. add users, devices, NAS nodes, exports, grants, mount profiles
-2. add auth and policy
-3. add a simple standalone web UI for admin/control use
+### Phase C: make deployment real
 
-This is where betterNAS becomes its own product.
+1. define Docker self-hosting shape
+2. define Nix-based NAS host install shape
+3. define remote access story for non-local usage
 
-### Phase C: add cloud mode
+### Phase D: add optional adapter surfaces
 
-1. connect the same storage into Nextcloud
-2. expose browser/mobile/share flows
-3. map Nextcloud behavior back to betterNAS product semantics
-
-This is high leverage, but should not block Phase A.
-
-## External parts we should deliberately reuse
-
-### NAS node
-
-- WebDAV server implementation
-- Nix module patterns
-
-### Control plane
-
-- Go API service scaffold
-- Postgres
-- Redis
-
-### Local device
-
-- Finder's native WebDAV mounting
-- macOS credential storage
-
-### Cloud/web layer
-
-- Nextcloud server
-- Nextcloud app shell
-- Nextcloud share/browser behavior
-- Nextcloud mobile and desktop references
-
-## From-scratch parts we should deliberately own
-
-### NAS node
-
-- node enrollment
-- export registration
-- machine identity and health reporting
-
-### Control plane
-
-- full backend domain model
-- access and policy model
-- mount profile generation
-- cloud profile generation
-- audit and registry
-
-### Local device
-
-- user-friendly mounting workflow
-- helper app if needed
-- local mount orchestration
-
-### Cloud/web layer
-
-- betterNAS-to-Nextcloud mapping layer
-- standalone betterNAS product UI over time
-
-## First scaffolds to use
-
-| Part            | First scaffold                                                |
-| --------------- | ------------------------------------------------------------- |
-| NAS node        | Nix flake/module + WebDAV server service config               |
-| Control plane   | Go service + OpenAPI contract + Postgres/Redis adapters later |
-| Local device    | documented Finder mount flow, then lightweight helper app     |
-| Cloud/web layer | current Nextcloud scaffold and shell app                      |
-
-## What not to overbuild early
-
-- custom sync engine
-- custom desktop client
-- custom mobile app
-- many backend services
-- control-plane-in-the-data-path file proxy
-
-Those can come later if the simpler stack proves insufficient.
+1. add Nextcloud only if browser/share/mobile value justifies it
+2. keep it out of the critical mount path
 
 ## Build goal for V1
 
 V1 should prove one clean loop:
 
 ```text
-user picks NAS export in betterNAS UI
--> control plane issues mount profile
--> local device mounts WebDAV export
--> user sees and uses files in Finder
--> optional Nextcloud surface exposes the same storage in cloud mode
+user opens betterNAS web UI
+-> sees a registered export
+-> requests mount instructions
+-> Finder mounts the WebDAV export
+-> user sees and uses files from the NAS
 ```
-
-If that loop works, the architecture is sound.
-
-## TODO
-
-- Choose the exact WebDAV server for the NAS node.
-- Decide the first Nix module layout for node installation.
-- Define the first database-backed control-plane entities.
-- Decide whether the local device starts as documentation-only or a helper app.
-- Decide when the Nextcloud cloud/web layer becomes user-facing in v1.

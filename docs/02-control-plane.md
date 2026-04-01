@@ -1,10 +1,11 @@
-# betterNAS Part 2: Control Plane
+# betterNAS Part 2: Control Server
 
-This document describes the main backend that owns product semantics and coordinates the rest of the system.
+This document describes the main backend that owns product semantics and
+coordinates the rest of the system.
 
 ## What it is
 
-The control plane is the source of truth for betterNAS.
+`control-server` is the source of truth for betterNAS.
 
 It should own:
 
@@ -14,8 +15,7 @@ It should own:
 - storage exports
 - access grants
 - mount profiles
-- cloud access profiles
-- audit events
+- later, share flows and audit events
 
 ## What it does
 
@@ -23,35 +23,32 @@ It should own:
 - tracks which NAS nodes exist
 - decides who can access which export
 - issues mount instructions to local devices
-- coordinates optional cloud/web access
-- stores the operational model of the whole product
+- drives the web control plane
+- stores the operational model of the product
 
 ## What it should not do
 
-- proxy file bytes unless absolutely necessary
-- become a bottleneck in the data path
-- depend on Nextcloud as its system of record
+- proxy file bytes by default
+- become the only data path between the Mac and the NAS
+- depend on Nextcloud as its source of truth
 
 ## Diagram
 
 ```text
-                            betterNAS system
+                         self-hosted betterNAS stack
 
-   NAS node  <--------->  [THIS DOC] control plane  <--------->  local device
-      |                           |                                   |
-      |                           |                                   |
-      +---------------------------+-----------------------+-----------+
-                                                          |
-                                                          v
-                                                   cloud/web layer
+      node-service <--------> [THIS DOC] control-server <--------> web control plane
+           ^                               |
+           |                               |
+           +----------- Finder mount flow -+
 ```
 
 ## Core decisions
 
-- The control plane is the product brain.
-- It should own policy and registry, not storage bytes.
-- It should stay standalone even if it integrates with Nextcloud.
-- It should issue access decisions, not act like a file server.
+- `control-server` is the product brain.
+- It owns policy and registry, not storage bytes.
+- It should stay deployable on the user's NAS in the default product shape.
+- The web UI should remain a consumer of this service, not a second backend.
 
 ## Suggested first entities
 
@@ -61,13 +58,12 @@ It should own:
 - `StorageExport`
 - `AccessGrant`
 - `MountProfile`
-- `CloudProfile`
 - `AuditEvent`
 
 ## TODO
 
-- Define the first real domain model and database schema.
-- Define auth between user device, NAS node, and control plane.
-- Define the API for mount profiles and access grants.
-- Define how the control plane tells the cloud/web layer what to expose.
-- Define direct-access vs relay behavior for unreachable NAS nodes.
+- Define the first durable database schema.
+- Define auth between user browser, user device, NAS node, and control-server.
+- Define the API for node registration, export inventory, and mount issuance.
+- Define how mount tokens or credentials are issued and rotated.
+- Define what optional cloud/share integration looks like later.
