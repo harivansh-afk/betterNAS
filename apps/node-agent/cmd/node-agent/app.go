@@ -155,12 +155,13 @@ func (a *app) handler() http.Handler {
 
 	for _, mount := range a.exportMounts {
 		mountPathPrefix := strings.TrimSuffix(mount.mountPath, "/")
+		fs := webdav.Dir(mount.exportPath)
 		dav := &webdav.Handler{
 			Prefix:     mountPathPrefix,
-			FileSystem: webdav.Dir(mount.exportPath),
+			FileSystem: fs,
 			LockSystem: webdav.NewMemLS(),
 		}
-		mux.Handle(mount.mountPath, a.requireDAVAuth(mount, dav))
+		mux.Handle(mount.mountPath, a.requireDAVAuth(mount, finderCompatible(dav, fs, mountPathPrefix)))
 	}
 
 	return mux
