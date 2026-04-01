@@ -1,52 +1,6 @@
 # aiNAS
 
-aiNAS is a storage control-plane project that uses vanilla Nextcloud as an upstream backend instead of forking the core server. This repository starts with the foundational pieces we need to build our own product surfaces while keeping file primitives, sync compatibility, and existing client integrations delegated to Nextcloud.
-
-## Repository Layout
-
-- `docker/`: local development runtime for Nextcloud and aiNAS services
-- `apps/ainas-controlplane/`: thin Nextcloud shell app
-- `exapps/control-plane/`: aiNAS-owned control-plane service
-- `packages/contracts/`: shared API contracts used by aiNAS services and adapters
-- `docs/`: architecture and development notes
-- `scripts/`: repeatable developer workflows
-
-## Local Development
-
-Requirements:
-- Docker with Compose support
-- Node.js 22+
-- npm 10+
-
-Bootstrap the JavaScript workspace:
-
-```bash
-npm install
-```
-
-Start the local stack:
-
-```bash
-./scripts/dev-up
-```
-
-Stop the local stack:
-
-```bash
-./scripts/dev-down
-```
-
-Reset the local stack, including Docker volumes:
-
-```bash
-./scripts/dev-down --volumes
-```
-
-Once the stack is up:
-- Nextcloud: `http://localhost:8080`
-- aiNAS control plane: `http://localhost:3001`
-
-The `dev-up` script waits for Nextcloud to report a healthy installed state, falls back to the documented `occ maintenance:install` flow if auto-install has not completed yet, and then enables the `ainascontrolplane` custom app inside the container.
+<img width="723" height="354" alt="image" src="https://github.com/user-attachments/assets/4e64fa91-315b-4a31-b191-d54ed1862ff7" />
 
 ## Architecture
 
