@@ -9,6 +9,9 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/runtime-env.sh"
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/verify-webdav"
 
 control_health="$(curl -fsS "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/health")"
+verify_run_id="$(date +%s)-$$"
+node_machine_id="${BETTERNAS_CLONE_NAME}-machine-${verify_run_id}"
+
 echo "$control_health" | jq -e '.service == "control-plane" and .status == "ok"' >/dev/null
 
 register_headers="$(mktemp)"
@@ -23,7 +26,7 @@ curl -fsS \
   -H "Authorization: Bearer ${BETTERNAS_CONTROL_PLANE_NODE_BOOTSTRAP_TOKEN}" \
   -d @- \
   "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/nodes/register" <<JSON
-{"machineId":"${BETTERNAS_CLONE_NAME}-machine","displayName":"${BETTERNAS_CLONE_NAME} node","agentVersion":"${BETTERNAS_VERSION}","directAddress":"${BETTERNAS_NODE_DIRECT_ADDRESS}","relayAddress":null,"exports":[{"label":"integration","path":"${BETTERNAS_EXPORT_PATH}","mountPath":"/dav/","protocols":["webdav"],"capacityBytes":null,"tags":["integration"]}]}
+{"machineId":"${node_machine_id}","displayName":"${BETTERNAS_CLONE_NAME} node","agentVersion":"${BETTERNAS_VERSION}","directAddress":"${BETTERNAS_NODE_DIRECT_ADDRESS}","relayAddress":null,"exports":[{"label":"integration","path":"${BETTERNAS_EXPORT_PATH}","mountPath":"/dav/","protocols":["webdav"],"capacityBytes":null,"tags":["integration"]}]}
 JSON
 
 register_response="$(cat "$register_body")"
