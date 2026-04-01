@@ -7,12 +7,14 @@ This document describes the software that runs on the actual NAS machine, VM, or
 The NAS node is the machine that actually has the storage.
 
 It should run:
+
 - a WebDAV server
 - a small betterNAS node agent
 - declarative config via Nix
 - optional tunnel or relay connection if the machine is not directly reachable
 
 It should expose one or more storage exports such as:
+
 - `/data`
 - `/media`
 - `/backups`

@@ -25,7 +25,9 @@ export default function Home() {
     <main className={styles.page}>
       <section className={styles.hero}>
         <p className={styles.eyebrow}>betterNAS monorepo</p>
-        <h1 className={styles.title}>Contract-first scaffold for NAS mounts and cloud mode.</h1>
+        <h1 className={styles.title}>
+          Contract-first scaffold for NAS mounts and cloud mode.
+        </h1>
         <p className={styles.copy}>
           The repo is organized so each system part can be built in parallel
           without inventing new interfaces. The source of truth is the root
@@ -35,7 +37,12 @@ export default function Home() {
 
       <section className={styles.grid}>
         {lanes.map((lane) => (
-          <Card key={lane.title} className={styles.card} title={lane.title} href="/#">
+          <Card
+            key={lane.title}
+            className={styles.card}
+            title={lane.title}
+            href="/#"
+          >
             {lane.body}
           </Card>
         ))}

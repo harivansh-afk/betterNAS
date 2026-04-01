@@ -32,10 +32,7 @@
       }
     },
     "capacityBytes": {
-      "type": [
-        "number",
-        "null"
-      ]
+      "type": ["number", "null"]
     },
     "tags": {
       "type": "array",

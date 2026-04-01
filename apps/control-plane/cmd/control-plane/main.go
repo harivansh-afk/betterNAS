@@ -60,12 +60,12 @@ func main() {
 	})
 	mux.HandleFunc("/api/v1/nodes/register", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, jsonObject{
-			"id":           "dev-node",
-			"machineId":    "dev-machine",
-			"displayName":  "Development NAS",
-			"agentVersion": "0.1.0-dev",
-			"status":       "online",
-			"lastSeenAt":   time.Now().UTC().Format(time.RFC3339),
+			"id":            "dev-node",
+			"machineId":     "dev-machine",
+			"displayName":   "Development NAS",
+			"agentVersion":  "0.1.0-dev",
+			"status":        "online",
+			"lastSeenAt":    time.Now().UTC().Format(time.RFC3339),
 			"directAddress": env("BETTERNAS_NODE_DIRECT_ADDRESS", "http://localhost:8090"),
 			"relayAddress":  nil,
 		})

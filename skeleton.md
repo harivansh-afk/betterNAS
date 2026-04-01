@@ -21,7 +21,6 @@ betterNAS/
 │   └── nextcloud-app/       # optional Nextcloud adapter
 ├── packages/
 │   ├── contracts/           # canonical OpenAPI, schemas, TS types
-│   ├── sdk-ts/              # TS SDK facade for the web app
 │   ├── ui/                  # shared React UI
 │   ├── eslint-config/       # shared lint config
 │   └── typescript-config/   # shared TS config
@@ -36,14 +35,13 @@ betterNAS/
 
 ## Runtime and language choices
 
-| Part | Language | Why |
-|---|---|---|
-| `apps/web` | TypeScript + Next.js | best UI velocity, best admin/control-plane UX |
-| `apps/control-plane` | Go | strong concurrency, static binaries, operationally simple |
-| `apps/node-agent` | Go | best fit for host runtime, WebDAV service, and future Nix deployment |
-| `apps/nextcloud-app` | PHP | native language for the Nextcloud adapter surface |
-| `packages/contracts` | OpenAPI + JSON Schema + TypeScript | language-neutral source of truth with practical TS ergonomics |
-| `packages/sdk-ts` | TypeScript | ergonomic consumption from the Next.js app |
+| Part                 | Language                           | Why                                                                  |
+| -------------------- | ---------------------------------- | -------------------------------------------------------------------- |
+| `apps/web`           | TypeScript + Next.js               | best UI velocity, best admin/control-plane UX                        |
+| `apps/control-plane` | Go                                 | strong concurrency, static binaries, operationally simple            |
+| `apps/node-agent`    | Go                                 | best fit for host runtime, WebDAV service, and future Nix deployment |
+| `apps/nextcloud-app` | PHP                                | native language for the Nextcloud adapter surface                    |
+| `packages/contracts` | OpenAPI + JSON Schema + TypeScript | language-neutral source of truth with practical TS ergonomics        |
 
 ## Canonical contract rule
 
@@ -89,7 +87,6 @@ Allowed ownership:
   - Nextcloud mapping logic
 - shared contract lane
   - `packages/contracts`
-  - `packages/sdk-ts`
   - `docs/architecture.md`
 
 ## The first verification loop
@@ -253,6 +250,7 @@ If a task does not make one of those steps more real, it is probably too early.
 - the mount profile model
 - the mapping between cloud mode and mount mode
 - the repo contract and shared schemas
+- the root `pnpm verify` loop
 
 ## The first implementation slices after this scaffold
 

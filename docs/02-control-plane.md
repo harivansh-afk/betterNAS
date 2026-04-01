@@ -7,6 +7,7 @@ This document describes the main backend that owns product semantics and coordin
 The control plane is the source of truth for betterNAS.
 
 It should own:
+
 - users
 - devices
 - NAS nodes

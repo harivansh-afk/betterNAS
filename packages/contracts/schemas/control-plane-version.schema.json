@@ -3,11 +3,7 @@
   "$id": "https://betternas.local/schemas/control-plane-version.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "service",
-    "version",
-    "apiVersion"
-  ],
+  "required": ["service", "version", "apiVersion"],
   "properties": {
     "service": {
       "const": "control-plane"
@@ -20,4 +16,3 @@
     }
   }
 }
-

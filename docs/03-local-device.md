@@ -7,10 +7,12 @@ This document describes the software and user experience on the user's Mac or ot
 The local device layer is how a user actually mounts and uses their NAS.
 
 It can start simple:
+
 - Finder + WebDAV mount
 - manual `Connect to Server`
 
 It can later grow into:
+
 - a small desktop helper
 - one-click mount flows
 - auto-mount at login

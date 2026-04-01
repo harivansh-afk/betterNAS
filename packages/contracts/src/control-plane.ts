@@ -1,6 +1,6 @@
 export const CONTROL_PLANE_ROUTES = {
   health: "/health",
-  version: "/version"
+  version: "/version",
 } as const;
 
 export interface NextcloudBackendStatus {
@@ -22,4 +22,3 @@ export interface ControlPlaneVersionResponse {
   version: string;
   apiVersion: "v1";
 }
-

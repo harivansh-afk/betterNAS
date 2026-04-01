@@ -123,12 +123,12 @@ parts exist at once.
 
 Each area gets an owner and a narrow write surface.
 
-| Part | Owns | May read | Must not own |
-|---|---|---|---|
-| NAS node | node runtime, export reporting, WebDAV config | contracts, control-plane docs | product policy |
-| Control plane | domain model, grants, profile issuance, registry | everything | direct file serving by default |
-| Local device | mount UX, helper flows, credential handling | contracts, control-plane docs | access policy |
-| Cloud/web layer | Nextcloud adapter, browser/mobile integration | contracts, control-plane docs | source of truth |
+| Part            | Owns                                             | May read                      | Must not own                   |
+| --------------- | ------------------------------------------------ | ----------------------------- | ------------------------------ |
+| NAS node        | node runtime, export reporting, WebDAV config    | contracts, control-plane docs | product policy                 |
+| Control plane   | domain model, grants, profile issuance, registry | everything                    | direct file serving by default |
+| Local device    | mount UX, helper flows, credential handling      | contracts, control-plane docs | access policy                  |
+| Cloud/web layer | Nextcloud adapter, browser/mobile integration    | contracts, control-plane docs | source of truth                |
 
 The only shared write surface across teams should be:
 
