@@ -1,0 +1,43 @@
+aiNAS repo
+  │ apps/ainas-controlplane                                                    
+  │   PHP Nextcloud app                                                        
+  │   - nav entry: "aiNAS"                                                     
+  │   - page route: /index.php/apps/ainascontrolplane/                       
+  │   - OCS route:  /ocs/v2.php/apps/ainascontrolplane/api/status           
+  │   - job today: call control-plane and render a thin shell                 
+  │
+  │ exapps/control-plane                                        
+  │   Node service                                                             
+  │   - /health                                                                
+  │   - /version                                                              
+  │   - job today: report "I am up" + "Nextcloud backend configured"         
+  │
+  │ packages/contracts                                                         
+  │   shared TS contracts for /health and /version payloads                   
+  │
+  │ docker/compose.dev.yml + scripts/dev-up                                     
+  │   local runtime/bootstrap                                                  
+  |                               host ports
+  |-----------------------------> :8080
+  |                               ┌───────────────────────────────┐
+  |                               │ nextcloud:31-apache           │
+  |                               │ - PHP + Apache                │
+  |                               │ - loads custom app from       │
+  |                               │   /var/www/html/custom_apps   │
+  |                               │ - stores app/server state in  │
+  |                               │   Postgres                    │
+  |                               │ - uses Redis for cache/locks  │
+  |                               │ - calls control-plane         │
+  |                               └──────────┬───────────┬────────┘
+  |                                          |           |
+  |                                          v           v
+  |                                   postgres:16    redis:7
+  |
+  |-----------------------------> :3001
+                                     ┌───────────────────────────────┐
+                                     │ control-plane container       │
+                                     │ Node HTTP service             │
+                                     │ - /health                     │
+                                     │ - /version                    │
+                                     │ - no real product logic yet   │
+                                     └───────────────────────────────┘
