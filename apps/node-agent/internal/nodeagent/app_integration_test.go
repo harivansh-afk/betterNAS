@@ -458,14 +458,15 @@ func TestAppRegistersWithoutControlPlaneTokenWhenUnset(t *testing.T) {
 	exportPath := filepath.Join(t.TempDir(), "export")
 
 	_, stop := startTestApp(t, Config{
-		Port:            "0",
-		ExportPath:      exportPath,
-		MachineID:       "nas-no-token",
-		DisplayName:     "No Token NAS",
-		AgentVersion:    "test-version",
-		ExportLabel:     "register-only",
-		ControlPlaneURL: controlPlane.URL,
-		RegisterEnabled: true,
+		Port:              "0",
+		ExportPath:        exportPath,
+		MachineID:         "nas-no-token",
+		DisplayName:       "No Token NAS",
+		AgentVersion:      "test-version",
+		ExportLabel:       "register-only",
+		ControlPlaneURL:   controlPlane.URL,
+		RegisterEnabled:   true,
+		HeartbeatInterval: time.Second,
 	})
 	defer stop()
 

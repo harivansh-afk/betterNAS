@@ -303,6 +303,10 @@ func validateRuntimeConfig(cfg Config) error {
 		return fmt.Errorf("BETTERNAS_NODE_HEARTBEAT_INTERVAL must be greater than zero")
 	}
 
+	if cfg.RegisterEnabled && cfg.HeartbeatInterval <= 0 {
+		return fmt.Errorf("BETTERNAS_NODE_HEARTBEAT_INTERVAL must be greater than zero when registration is enabled")
+	}
+
 	return nil
 }
 

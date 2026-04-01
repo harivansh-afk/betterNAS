@@ -93,3 +93,22 @@ func TestNewRejectsRegistrationWithoutMachineID(t *testing.T) {
 		t.Fatalf("error = %q, want missing-machine-id message", err.Error())
 	}
 }
+
+func TestNewRejectsRegistrationWithoutHeartbeatInterval(t *testing.T) {
+	t.Parallel()
+
+	_, err := New(Config{
+		ExportPath:      t.TempDir(),
+		ListenAddress:   defaultListenAddress(defaultPort),
+		MachineID:       "nas-1",
+		ControlPlaneURL: "http://127.0.0.1:8081",
+		RegisterEnabled: true,
+	}, log.New(io.Discard, "", 0))
+	if err == nil {
+		t.Fatal("expected missing registration retry interval to fail")
+	}
+
+	if !strings.Contains(err.Error(), "BETTERNAS_NODE_HEARTBEAT_INTERVAL") {
+		t.Fatalf("error = %q, want missing-heartbeat-interval message", err.Error())
+	}
+}
