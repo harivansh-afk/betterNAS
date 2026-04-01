@@ -10,7 +10,7 @@
 - [x] 2.1 Generate the aiNAS Nextcloud app scaffold into `apps/ainas-controlplane/`
 - [x] 2.2 Configure the shell app with aiNAS branding, navigation entry points, and basic settings surface
 - [x] 2.3 Add an adapter layer in the shell app for calling aiNAS-owned service endpoints
-- [ ] 2.4 Verify the shell app installs and loads in the local Nextcloud runtime
+- [x] 2.4 Verify the shell app installs and loads in the local Nextcloud runtime
 
 ## 3. Control-plane service scaffold
 
@@ -24,4 +24,4 @@
 - [x] 4.1 Create the shared contracts package for internal API schemas and payload definitions
 - [x] 4.2 Define the initial contracts used between the shell app and the control-plane service
 - [x] 4.3 Document the architectural boundary that keeps business logic out of the Nextcloud app
-- [ ] 4.4 Verify end-to-end local startup with Nextcloud, the shell app, and the control-plane service all reachable
+- [x] 4.4 Verify end-to-end local startup with Nextcloud, the shell app, and the control-plane service all reachable
