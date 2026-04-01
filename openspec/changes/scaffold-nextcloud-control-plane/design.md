@@ -1,16 +1,16 @@
 ## Context
 
-aiNAS is starting as a greenfield project with a clear product boundary: we want our own storage control plane, product UX, and business logic while using Nextcloud as an upstream backend for file storage, sync primitives, sharing primitives, and existing client compatibility. The repository is effectively empty today, so this change needs to establish both the architectural stance and the initial developer scaffold.
+betterNAS is starting as a greenfield project with a clear product boundary: we want our own storage control plane, product UX, and business logic while using Nextcloud as an upstream backend for file storage, sync primitives, sharing primitives, and existing client compatibility. The repository is effectively empty today, so this change needs to establish both the architectural stance and the initial developer scaffold.
 
-The main constraint is maintenance ownership. Forking `nextcloud/server` would move security patches, upstream upgrade churn, and internal compatibility risk onto aiNAS too early. At the same time, pushing all product logic into a traditional Nextcloud app would make our business rules hard to evolve and tightly couple the product to the PHP monolith. The design therefore needs to leave us with a thin in-Nextcloud surface and a separate aiNAS-owned service layer.
+The main constraint is maintenance ownership. Forking `nextcloud/server` would move security patches, upstream upgrade churn, and internal compatibility risk onto betterNAS too early. At the same time, pushing all product logic into a traditional Nextcloud app would make our business rules hard to evolve and tightly couple the product to the PHP monolith. The design therefore needs to leave us with a thin in-Nextcloud surface and a separate betterNAS-owned service layer.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Create a repository scaffold that supports local development with vanilla Nextcloud and aiNAS-owned services.
+- Create a repository scaffold that supports local development with vanilla Nextcloud and betterNAS-owned services.
 - Define a thin Nextcloud shell app that handles navigation, branded entry points, and backend integration hooks.
-- Define an aiNAS control-plane service boundary for business logic, policy, and orchestration.
-- Keep interfaces typed and explicit so future web, desktop, and iOS clients can target aiNAS services rather than Nextcloud internals.
+- Define an betterNAS control-plane service boundary for business logic, policy, and orchestration.
+- Keep interfaces typed and explicit so future web, desktop, and iOS clients can target betterNAS services rather than Nextcloud internals.
 - Make the initial architecture easy to extend without forcing a Nextcloud core fork.
 
 **Non-Goals:**
@@ -23,7 +23,7 @@ The main constraint is maintenance ownership. Forking `nextcloud/server` would m
 
 ### 1. Use vanilla Nextcloud as an upstream backend, not a fork
 
-aiNAS will run a stock Nextcloud instance in local development and future environments. We will extend it through a dedicated aiNAS app and service integrations instead of modifying core server code.
+betterNAS will run a stock Nextcloud instance in local development and future environments. We will extend it through a dedicated betterNAS app and service integrations instead of modifying core server code.
 
 Rationale:
 - Keeps upstream upgrades and security patches tractable.
@@ -36,7 +36,7 @@ Alternatives considered:
 
 ### 2. Keep the Nextcloud app thin and treat it as an adapter shell
 
-The generated Nextcloud app will own aiNAS-specific UI entry points inside Nextcloud, settings pages, and integration hooks, but SHALL not become the home of core business logic. It will call aiNAS-owned APIs/services for control-plane decisions.
+The generated Nextcloud app will own betterNAS-specific UI entry points inside Nextcloud, settings pages, and integration hooks, but SHALL not become the home of core business logic. It will call betterNAS-owned APIs/services for control-plane decisions.
 
 Rationale:
 - Keeps PHP app code small and replaceable.
@@ -46,12 +46,12 @@ Rationale:
 Alternatives considered:
 - Put most logic directly in the app: rejected because it couples product evolution to the monolith.
 
-### 3. Scaffold an aiNAS control-plane service from the start
+### 3. Scaffold an betterNAS control-plane service from the start
 
 The repo will include a control-plane service that exposes internal HTTP APIs, owns domain models, and encapsulates policy and orchestration logic. In the first scaffold, this service may be packaged in an ExApp-compatible container, but the code structure SHALL keep Nextcloud-specific integration at the boundary rather than in domain logic.
 
 Rationale:
-- Matches the product direction of aiNAS owning the control plane.
+- Matches the product direction of betterNAS owning the control plane.
 - Gives one place for RBAC, storage policy, and orchestration logic to live.
 - Supports future desktop, iOS, and standalone web surfaces without coupling them to Nextcloud-rendered pages.
 
@@ -66,7 +66,7 @@ The initial scaffold will create clear top-level directories for infrastructure,
 Initial structure:
 - `docker/`: local orchestration and container assets
 - `apps/ainas-controlplane/`: generated Nextcloud shell app
-- `exapps/control-plane/`: aiNAS control-plane service, packaged for Nextcloud-compatible dev flows
+- `exapps/control-plane/`: betterNAS control-plane service, packaged for Nextcloud-compatible dev flows
 - `packages/contracts/`: shared schemas and API contracts
 - `docs/`: architecture and product model notes
 - `scripts/`: repeatable developer entry points
@@ -82,7 +82,7 @@ Alternatives considered:
 
 ### 5. Standardize on a Docker-based local platform first
 
-The first scaffold will target a Docker Compose development environment that starts Nextcloud, its required backing services, and the aiNAS control-plane service. This gives a repeatable local runtime before we decide on production deployment.
+The first scaffold will target a Docker Compose development environment that starts Nextcloud, its required backing services, and the betterNAS control-plane service. This gives a repeatable local runtime before we decide on production deployment.
 
 Rationale:
 - Aligns with Nextcloud's easiest local development path.
@@ -95,7 +95,7 @@ Alternatives considered:
 
 ## Risks / Trade-offs
 
-- [Nextcloud coupling leaks into aiNAS service design] → Keep all Nextcloud-specific API calls and payload translation in adapter modules at the edge of the control-plane service.
+- [Nextcloud coupling leaks into betterNAS service design] → Keep all Nextcloud-specific API calls and payload translation in adapter modules at the edge of the control-plane service.
 - [The shell app grows into a second control plane] → Enforce a rule that product decisions and persistent domain logic live in the control-plane service, not the Nextcloud app.
 - [ExApp packaging constrains future independence] → Structure the service so container packaging is a deployment concern rather than the application architecture.
 - [Initial repo layout may be wrong in details] → Optimize for a small number of strong boundaries now; revisit internal package names later without collapsing ownership boundaries.
@@ -116,5 +116,5 @@ Rollback strategy:
 
 - Should the first control-plane service be implemented in Go, Python, or Node/TypeScript?
 - What authentication boundary should exist between the Nextcloud shell app and the control-plane service in local development?
-- Which parts of future sharing and RBAC behavior should remain delegated to Nextcloud, and which should be modeled natively in aiNAS?
+- Which parts of future sharing and RBAC behavior should remain delegated to Nextcloud, and which should be modeled natively in betterNAS?
 - Do we want the first web product surface to live inside Nextcloud pages, outside Nextcloud as a separate frontend, or both?

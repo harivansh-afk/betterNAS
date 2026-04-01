@@ -63,4 +63,4 @@ fi
 nextcloud_occ app:enable --force ainascontrolplane >/dev/null
 
 echo "Nextcloud: http://localhost:8080"
-echo "aiNAS control plane: http://localhost:3001"
+echo "betterNAS control plane: http://localhost:3001"
