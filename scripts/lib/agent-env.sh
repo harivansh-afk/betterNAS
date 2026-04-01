@@ -130,6 +130,8 @@ betternas_write_agent_env_file() {
     betternas_write_env_assignment "BETTERNAS_NEXTCLOUD_PORT" "$nextcloud_port"
     betternas_write_env_assignment "BETTERNAS_EXPORT_PATH" ".state/${clone_name}/export"
     betternas_write_env_assignment "BETTERNAS_VERSION" "local-dev"
+    betternas_write_env_assignment "BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN" "${clone_name}-local-client-token"
+    betternas_write_env_assignment "BETTERNAS_CONTROL_PLANE_NODE_BOOTSTRAP_TOKEN" "${clone_name}-local-node-bootstrap-token"
     betternas_write_env_assignment "BETTERNAS_NODE_DIRECT_ADDRESS" "http://localhost:${node_agent_port}"
     betternas_write_env_assignment "BETTERNAS_EXAMPLE_MOUNT_URL" "http://localhost:${node_agent_port}/dav/"
     betternas_write_env_assignment "NEXTCLOUD_BASE_URL" "http://localhost:${nextcloud_port}"

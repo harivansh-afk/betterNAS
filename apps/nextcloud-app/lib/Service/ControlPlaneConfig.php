@@ -27,5 +27,17 @@ class ControlPlaneConfig {
 
 		return rtrim($configuredUrl, '/');
 	}
-}
 
+	public function getApiToken(): string {
+		$environmentToken = getenv('BETTERNAS_CONTROL_PLANE_API_TOKEN');
+		if (is_string($environmentToken) && $environmentToken !== '') {
+			return $environmentToken;
+		}
+
+		return $this->appConfig->getValueString(
+			Application::APP_ID,
+			'control_plane_api_token',
+			'',
+		);
+	}
+}

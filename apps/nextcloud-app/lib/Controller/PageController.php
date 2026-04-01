@@ -39,5 +39,21 @@ class PageController extends Controller {
 			],
 		);
 	}
-}
 
+	#[NoCSRFRequired]
+	#[NoAdminRequired]
+	#[OpenAPI(OpenAPI::SCOPE_IGNORE)]
+	#[FrontpageRoute(verb: 'GET', url: '/exports/{exportId}')]
+	public function showExport(string $exportId): TemplateResponse {
+		return new TemplateResponse(
+			Application::APP_ID,
+			'export',
+			[
+				'appName' => 'betterNAS Control Plane',
+				'controlPlaneUrl' => $this->controlPlaneConfig->getBaseUrl(),
+				'exportId' => $exportId,
+				'export' => $this->controlPlaneClient->fetchExport($exportId),
+			],
+		);
+	}
+}

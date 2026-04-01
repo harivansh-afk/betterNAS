@@ -25,6 +25,9 @@
     "path": {
       "type": "string"
     },
+    "mountPath": {
+      "type": "string"
+    },
     "protocols": {
       "type": "array",
       "items": {
