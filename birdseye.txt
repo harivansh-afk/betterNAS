@@ -1,0 +1,30 @@
+# aiNAS decision scaffold
+
+                       STEAL NOW                     OWN NOW
+                   -------------------         -------------------
+                   Nextcloud server            aiNAS control plane
+                   Nextcloud desktop           aiNAS product API
+                   Nextcloud iOS               aiNAS policy model
+                   Nextcloud external storage  aiNAS device model
+                   Nextcloud sharing UI        aiNAS mount model
+
+                                          LATER
+                                 -----------------------
+                                 branded/forked clients
+                                 true mount agent
+                                 standalone web product
+                                 deeper indexing/search
+
+   users
+     |
+     +--> Nextcloud web shell/app  --------\
+     |     - login/session                 |
+     |     - file/share UI                 |
+     |     - thin aiNAS entry page         |
+     |     - OCS route                     |
+     |                                     v
+     +--> Nextcloud desktop/iOS ----> aiNAS control plane ----> storage backends
+           - Finder presence             - devices               - NAS / SMB / S3
+           - sync / virtual files        - policies              - NFS / WebDAV
+           - mobile app                  - shares/mounts         - local/ZFS/etc
+                                         - future product API
