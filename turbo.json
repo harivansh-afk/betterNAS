@@ -1,6 +1,11 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
+  "globalEnv": [
+    "BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN",
+    "BETTERNAS_CONTROL_PLANE_PORT",
+    "BETTERNAS_CONTROL_PLANE_URL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

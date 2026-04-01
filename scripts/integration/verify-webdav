@@ -8,7 +8,19 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/runtime-env.sh"
 headers="$(mktemp)"
 trap 'rm -f "$headers"' EXIT
 
-curl -fsS -D "$headers" -o /dev/null -X PROPFIND -H 'Depth: 0' "$BETTERNAS_EXAMPLE_MOUNT_URL"
+curl_args=(
+  -fsS
+  -D "$headers"
+  -o /dev/null
+  -X PROPFIND
+  -H 'Depth: 0'
+)
+
+if [[ -n "${BETTERNAS_EXAMPLE_MOUNT_USERNAME:-}" ]] || [[ -n "${BETTERNAS_EXAMPLE_MOUNT_PASSWORD:-}" ]]; then
+  curl_args+=(-u "${BETTERNAS_EXAMPLE_MOUNT_USERNAME:-}:${BETTERNAS_EXAMPLE_MOUNT_PASSWORD:-}")
+fi
+
+curl "${curl_args[@]}" "$BETTERNAS_EXAMPLE_MOUNT_URL"
 
 if ! grep -Eq '^HTTP/[0-9.]+ 207' "$headers"; then
   echo "WebDAV PROPFIND did not return 207 for $BETTERNAS_EXAMPLE_MOUNT_URL" >&2

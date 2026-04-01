@@ -12,6 +12,8 @@ type appConfig struct {
 	statePath          string
 	clientToken        string
 	nodeBootstrapToken string
+	davAuthSecret      string
+	davCredentialTTL   time.Duration
 }
 
 type app struct {
@@ -30,6 +32,14 @@ func newApp(config appConfig, startedAt time.Time) (*app, error) {
 	config.nodeBootstrapToken = strings.TrimSpace(config.nodeBootstrapToken)
 	if config.nodeBootstrapToken == "" {
 		return nil, errors.New("node bootstrap token is required")
+	}
+
+	config.davAuthSecret = strings.TrimSpace(config.davAuthSecret)
+	if config.davAuthSecret == "" {
+		return nil, errors.New("dav auth secret is required")
+	}
+	if config.davCredentialTTL <= 0 {
+		return nil, errors.New("dav credential ttl must be greater than 0")
 	}
 
 	store, err := newMemoryStore(config.statePath)
@@ -88,13 +98,20 @@ type storageExport struct {
 }
 
 type mountProfile struct {
-	ID             string `json:"id"`
-	ExportID       string `json:"exportId"`
-	Protocol       string `json:"protocol"`
-	DisplayName    string `json:"displayName"`
-	MountURL       string `json:"mountUrl"`
-	Readonly       bool   `json:"readonly"`
-	CredentialMode string `json:"credentialMode"`
+	ID          string          `json:"id"`
+	ExportID    string          `json:"exportId"`
+	Protocol    string          `json:"protocol"`
+	DisplayName string          `json:"displayName"`
+	MountURL    string          `json:"mountUrl"`
+	Readonly    bool            `json:"readonly"`
+	Credential  mountCredential `json:"credential"`
+}
+
+type mountCredential struct {
+	Mode      string `json:"mode"`
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	ExpiresAt string `json:"expiresAt"`
 }
 
 type cloudProfile struct {
@@ -115,12 +132,15 @@ type storageExportInput struct {
 }
 
 type nodeRegistrationRequest struct {
-	MachineID     string               `json:"machineId"`
-	DisplayName   string               `json:"displayName"`
-	AgentVersion  string               `json:"agentVersion"`
-	DirectAddress *string              `json:"directAddress"`
-	RelayAddress  *string              `json:"relayAddress"`
-	Exports       []storageExportInput `json:"exports"`
+	MachineID     string  `json:"machineId"`
+	DisplayName   string  `json:"displayName"`
+	AgentVersion  string  `json:"agentVersion"`
+	DirectAddress *string `json:"directAddress"`
+	RelayAddress  *string `json:"relayAddress"`
+}
+
+type nodeExportsRequest struct {
+	Exports []storageExportInput `json:"exports"`
 }
 
 type nodeHeartbeatRequest struct {
@@ -130,8 +150,6 @@ type nodeHeartbeatRequest struct {
 }
 
 type mountProfileRequest struct {
-	UserID   string `json:"userId"`
-	DeviceID string `json:"deviceId"`
 	ExportID string `json:"exportId"`
 }
 

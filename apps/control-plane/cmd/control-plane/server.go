@@ -35,6 +35,7 @@ func (a *app) handler() http.Handler {
 	mux.HandleFunc("GET /version", a.handleVersion)
 	mux.HandleFunc("POST /api/v1/nodes/register", a.handleNodeRegister)
 	mux.HandleFunc("POST /api/v1/nodes/{nodeId}/heartbeat", a.handleNodeHeartbeat)
+	mux.HandleFunc("PUT /api/v1/nodes/{nodeId}/exports", a.handleNodeExports)
 	mux.HandleFunc("GET /api/v1/exports", a.handleExportsList)
 	mux.HandleFunc("POST /api/v1/mount-profiles/issue", a.handleMountProfileIssue)
 	mux.HandleFunc("POST /api/v1/cloud-profiles/issue", a.handleCloudProfileIssue)
@@ -127,6 +128,37 @@ func (a *app) handleNodeHeartbeat(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (a *app) handleNodeExports(w http.ResponseWriter, r *http.Request) {
+	nodeID := r.PathValue("nodeId")
+
+	request, err := decodeNodeExportsRequest(w, r)
+	if err != nil {
+		writeDecodeError(w, err)
+		return
+	}
+
+	if err := validateNodeExportsRequest(request); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if !a.authorizeNode(w, r, nodeID) {
+		return
+	}
+
+	exports, err := a.store.upsertExports(nodeID, request)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, errNodeNotFound) {
+			statusCode = http.StatusNotFound
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, exports)
+}
+
 func (a *app) handleExportsList(w http.ResponseWriter, r *http.Request) {
 	if !a.requireClientAuth(w, r) {
 		return
@@ -163,14 +195,27 @@ func (a *app) handleMountProfileIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	credentialID, credential, err := issueMountCredential(
+		a.config.davAuthSecret,
+		context.node.ID,
+		mountProfilePathForExport(context.export.MountPath),
+		false,
+		a.now(),
+		a.config.davCredentialTTL,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	writeJSON(w, http.StatusOK, mountProfile{
-		ID:             fmt.Sprintf("mount-%s-%s", request.DeviceID, context.export.ID),
-		ExportID:       context.export.ID,
-		Protocol:       "webdav",
-		DisplayName:    context.export.Label,
-		MountURL:       mountURL,
-		Readonly:       false,
-		CredentialMode: "session-token",
+		ID:          credentialID,
+		ExportID:    context.export.ID,
+		Protocol:    "webdav",
+		DisplayName: context.export.Label,
+		MountURL:    mountURL,
+		Readonly:    false,
+		Credential:  credential,
 	})
 }
 
@@ -226,7 +271,6 @@ func decodeNodeRegistrationRequest(w http.ResponseWriter, r *http.Request) (node
 		"agentVersion",
 		"directAddress",
 		"relayAddress",
-		"exports",
 	); err != nil {
 		return nodeRegistrationRequest{}, err
 	}
@@ -258,9 +302,22 @@ func decodeNodeRegistrationRequest(w http.ResponseWriter, r *http.Request) (node
 		return nodeRegistrationRequest{}, err
 	}
 
+	return request, nil
+}
+
+func decodeNodeExportsRequest(w http.ResponseWriter, r *http.Request) (nodeExportsRequest, error) {
+	object, err := decodeRawObjectRequest(w, r)
+	if err != nil {
+		return nodeExportsRequest{}, err
+	}
+	if err := object.validateRequiredKeys("exports"); err != nil {
+		return nodeExportsRequest{}, err
+	}
+
+	request := nodeExportsRequest{}
 	request.Exports, err = object.storageExportInputsField("exports")
 	if err != nil {
-		return nodeRegistrationRequest{}, err
+		return nodeExportsRequest{}, err
 	}
 
 	return request, nil
@@ -495,10 +552,18 @@ func validateNodeRegistrationRequest(request *nodeRegistrationRequest) error {
 		return err
 	}
 
-	seenPaths := make(map[string]struct{}, len(request.Exports))
-	seenMountPaths := make(map[string]struct{}, len(request.Exports))
-	for index := range request.Exports {
-		export := &request.Exports[index]
+	return nil
+}
+
+func validateNodeExportsRequest(request nodeExportsRequest) error {
+	return validateStorageExportInputs(request.Exports)
+}
+
+func validateStorageExportInputs(exports []storageExportInput) error {
+	seenPaths := make(map[string]struct{}, len(exports))
+	seenMountPaths := make(map[string]struct{}, len(exports))
+	for index := range exports {
+		export := &exports[index]
 		export.Label = strings.TrimSpace(export.Label)
 		if export.Label == "" {
 			return fmt.Errorf("exports[%d].label is required", index)
@@ -514,7 +579,7 @@ func validateNodeRegistrationRequest(request *nodeRegistrationRequest) error {
 		seenPaths[export.Path] = struct{}{}
 
 		export.MountPath = strings.TrimSpace(export.MountPath)
-		if len(request.Exports) > 1 && export.MountPath == "" {
+		if len(exports) > 1 && export.MountPath == "" {
 			return fmt.Errorf("exports[%d].mountPath is required when registering multiple exports", index)
 		}
 		if export.MountPath != "" {
@@ -567,12 +632,6 @@ func validateNodeHeartbeatRequest(nodeID string, request nodeHeartbeatRequest) e
 }
 
 func validateMountProfileRequest(request mountProfileRequest) error {
-	if strings.TrimSpace(request.UserID) == "" {
-		return errors.New("userId is required")
-	}
-	if strings.TrimSpace(request.DeviceID) == "" {
-		return errors.New("deviceId is required")
-	}
 	if strings.TrimSpace(request.ExportID) == "" {
 		return errors.New("exportId is required")
 	}
@@ -771,6 +830,23 @@ func requiredEnv(key string) (string, error) {
 	}
 
 	return value, nil
+}
+
+func parseRequiredDurationEnv(key string) (time.Duration, error) {
+	value, err := requiredEnv(key)
+	if err != nil {
+		return 0, err
+	}
+
+	duration, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be a valid duration: %w", key, err)
+	}
+	if duration <= 0 {
+		return 0, fmt.Errorf("%s must be greater than 0", key)
+	}
+
+	return duration, nil
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, destination any) error {

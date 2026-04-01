@@ -92,16 +92,23 @@ func TestControlPlaneRegistrationProfilesAndHeartbeat(t *testing.T) {
 		AgentVersion:  "1.2.3",
 		DirectAddress: &directAddress,
 		RelayAddress:  &relayAddress,
+	})
+	if registration.NodeToken == "" {
+		t.Fatal("expected node registration to return a node token")
+	}
+
+	syncedExports := syncNodeExports(t, server.Client(), registration.NodeToken, server.URL+"/api/v1/nodes/"+registration.Node.ID+"/exports", nodeExportsRequest{
 		Exports: []storageExportInput{{
 			Label:         "Photos",
 			Path:          "/srv/photos",
+			MountPath:     "/dav/",
 			Protocols:     []string{"webdav"},
 			CapacityBytes: nil,
 			Tags:          []string{"family"},
 		}},
 	})
-	if registration.NodeToken == "" {
-		t.Fatal("expected node registration to return a node token")
+	if len(syncedExports) != 1 {
+		t.Fatalf("expected sync to return 1 export, got %d", len(syncedExports))
 	}
 
 	node := registration.Node
@@ -137,13 +144,11 @@ func TestControlPlaneRegistrationProfilesAndHeartbeat(t *testing.T) {
 	if exports[0].Path != "/srv/photos" {
 		t.Fatalf("expected export path %q, got %q", "/srv/photos", exports[0].Path)
 	}
-	if exports[0].MountPath != "" {
-		t.Fatalf("expected empty mountPath for default export, got %q", exports[0].MountPath)
+	if exports[0].MountPath != "/dav/" {
+		t.Fatalf("expected mountPath %q, got %q", "/dav/", exports[0].MountPath)
 	}
 
 	mount := postJSONAuth[mountProfile](t, server.Client(), testClientToken, server.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{
-		UserID:   "user-1",
-		DeviceID: "device-1",
 		ExportID: exports[0].ID,
 	})
 	if mount.ExportID != exports[0].ID {
@@ -161,8 +166,17 @@ func TestControlPlaneRegistrationProfilesAndHeartbeat(t *testing.T) {
 	if mount.Readonly {
 		t.Fatal("expected mount profile to be read-write")
 	}
-	if mount.CredentialMode != "session-token" {
-		t.Fatalf("expected credentialMode session-token, got %q", mount.CredentialMode)
+	if mount.Credential.Mode != mountCredentialModeBasicAuth {
+		t.Fatalf("expected credential mode %q, got %q", mountCredentialModeBasicAuth, mount.Credential.Mode)
+	}
+	if mount.Credential.Username == "" {
+		t.Fatal("expected mount credential username to be set")
+	}
+	if mount.Credential.Password == "" {
+		t.Fatal("expected mount credential password to be set")
+	}
+	if mount.Credential.ExpiresAt == "" {
+		t.Fatal("expected mount credential expiry to be set")
 	}
 
 	cloud := postJSONAuth[cloudProfile](t, server.Client(), testClientToken, server.URL+"/api/v1/cloud-profiles/issue", cloudProfileRequest{
@@ -202,7 +216,7 @@ func TestControlPlaneRegistrationProfilesAndHeartbeat(t *testing.T) {
 	}
 }
 
-func TestControlPlaneReRegistrationReconcilesExportsAndKeepsStableIDs(t *testing.T) {
+func TestControlPlaneExportSyncReconcilesExportsAndKeepsStableIDs(t *testing.T) {
 	t.Parallel()
 
 	app, server := newTestControlPlaneServer(t, appConfig{version: "test-version"})
@@ -215,6 +229,30 @@ func TestControlPlaneReRegistrationReconcilesExportsAndKeepsStableIDs(t *testing
 		AgentVersion:  "1.2.3",
 		DirectAddress: &directAddress,
 		RelayAddress:  nil,
+	})
+
+	putJSONAuthStatus(t, server.Client(), testNodeBootstrapToken, server.URL+"/api/v1/nodes/"+firstRegistration.Node.ID+"/exports", nodeExportsRequest{
+		Exports: []storageExportInput{
+			{
+				Label:         "Docs",
+				Path:          "/srv/docs",
+				MountPath:     "/dav/exports/docs/",
+				Protocols:     []string{"webdav"},
+				CapacityBytes: nil,
+				Tags:          []string{"work"},
+			},
+			{
+				Label:         "Media",
+				Path:          "/srv/media",
+				MountPath:     "/dav/exports/media/",
+				Protocols:     []string{"webdav"},
+				CapacityBytes: nil,
+				Tags:          []string{"personal"},
+			},
+		},
+	}, http.StatusUnauthorized)
+
+	syncNodeExports(t, server.Client(), firstRegistration.NodeToken, server.URL+"/api/v1/nodes/"+firstRegistration.Node.ID+"/exports", nodeExportsRequest{
 		Exports: []storageExportInput{
 			{
 				Label:         "Docs",
@@ -235,22 +273,6 @@ func TestControlPlaneReRegistrationReconcilesExportsAndKeepsStableIDs(t *testing
 		},
 	})
 
-	postJSONAuthStatus(t, server.Client(), testNodeBootstrapToken, server.URL+"/api/v1/nodes/register", nodeRegistrationRequest{
-		MachineID:     "machine-1",
-		DisplayName:   "Unauthorized Re-register",
-		AgentVersion:  "1.2.3",
-		DirectAddress: &directAddress,
-		RelayAddress:  nil,
-		Exports: []storageExportInput{{
-			Label:         "Docs",
-			Path:          "/srv/docs",
-			MountPath:     "/dav/exports/docs/",
-			Protocols:     []string{"webdav"},
-			CapacityBytes: nil,
-			Tags:          []string{"work"},
-		}},
-	}, http.StatusUnauthorized)
-
 	initialExports := exportsByPath(getJSONAuth[[]storageExport](t, server.Client(), testClientToken, server.URL+"/api/v1/exports"))
 	docsExport := initialExports["/srv/docs"]
 	mediaExport := initialExports["/srv/media"]
@@ -261,6 +283,30 @@ func TestControlPlaneReRegistrationReconcilesExportsAndKeepsStableIDs(t *testing
 		AgentVersion:  "1.2.4",
 		DirectAddress: &directAddress,
 		RelayAddress:  nil,
+	})
+
+	putJSONAuthStatus(t, server.Client(), testClientToken, server.URL+"/api/v1/nodes/"+firstRegistration.Node.ID+"/exports", nodeExportsRequest{
+		Exports: []storageExportInput{
+			{
+				Label:         "Docs v2",
+				Path:          "/srv/docs",
+				MountPath:     "/dav/exports/docs-v2/",
+				Protocols:     []string{"webdav"},
+				CapacityBytes: nil,
+				Tags:          []string{"work", "updated"},
+			},
+			{
+				Label:         "Backups",
+				Path:          "/srv/backups",
+				MountPath:     "/dav/exports/backups/",
+				Protocols:     []string{"webdav"},
+				CapacityBytes: nil,
+				Tags:          []string{"system"},
+			},
+		},
+	}, http.StatusUnauthorized)
+
+	syncNodeExports(t, server.Client(), firstRegistration.NodeToken, server.URL+"/api/v1/nodes/"+firstRegistration.Node.ID+"/exports", nodeExportsRequest{
 		Exports: []storageExportInput{
 			{
 				Label:         "Docs v2",
@@ -330,12 +376,14 @@ func TestControlPlaneProfilesRemainExportSpecificForConfiguredMountPaths(t *test
 	defer server.Close()
 
 	directAddress := "http://nas.local:8090"
-	registerNode(t, server.Client(), server.URL+"/api/v1/nodes/register", testNodeBootstrapToken, nodeRegistrationRequest{
+	registration := registerNode(t, server.Client(), server.URL+"/api/v1/nodes/register", testNodeBootstrapToken, nodeRegistrationRequest{
 		MachineID:     "machine-multi",
 		DisplayName:   "Multi Export NAS",
 		AgentVersion:  "1.2.3",
 		DirectAddress: &directAddress,
 		RelayAddress:  nil,
+	})
+	syncNodeExports(t, server.Client(), registration.NodeToken, server.URL+"/api/v1/nodes/"+registration.Node.ID+"/exports", nodeExportsRequest{
 		Exports: []storageExportInput{
 			{
 				Label:         "Docs",
@@ -360,16 +408,8 @@ func TestControlPlaneProfilesRemainExportSpecificForConfiguredMountPaths(t *test
 	docsExport := exports["/srv/docs"]
 	mediaExport := exports["/srv/media"]
 
-	docsMount := postJSONAuth[mountProfile](t, server.Client(), testClientToken, server.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{
-		UserID:   "user-1",
-		DeviceID: "device-1",
-		ExportID: docsExport.ID,
-	})
-	mediaMount := postJSONAuth[mountProfile](t, server.Client(), testClientToken, server.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{
-		UserID:   "user-1",
-		DeviceID: "device-1",
-		ExportID: mediaExport.ID,
-	})
+	docsMount := postJSONAuth[mountProfile](t, server.Client(), testClientToken, server.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{ExportID: docsExport.ID})
+	mediaMount := postJSONAuth[mountProfile](t, server.Client(), testClientToken, server.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{ExportID: mediaExport.ID})
 	if docsMount.MountURL == mediaMount.MountURL {
 		t.Fatalf("expected distinct mount URLs for configured export paths, got %q", docsMount.MountURL)
 	}
@@ -408,12 +448,14 @@ func TestControlPlaneMountProfilesUseRelayAndPreserveBasePath(t *testing.T) {
 	defer server.Close()
 
 	relayAddress := "https://nas.example.test/control"
-	registerNode(t, server.Client(), server.URL+"/api/v1/nodes/register", testNodeBootstrapToken, nodeRegistrationRequest{
+	registration := registerNode(t, server.Client(), server.URL+"/api/v1/nodes/register", testNodeBootstrapToken, nodeRegistrationRequest{
 		MachineID:     "machine-relay",
 		DisplayName:   "Relay NAS",
 		AgentVersion:  "1.2.3",
 		DirectAddress: nil,
 		RelayAddress:  &relayAddress,
+	})
+	syncNodeExports(t, server.Client(), registration.NodeToken, server.URL+"/api/v1/nodes/"+registration.Node.ID+"/exports", nodeExportsRequest{
 		Exports: []storageExportInput{{
 			Label:         "Relay",
 			Path:          "/srv/relay",
@@ -424,35 +466,30 @@ func TestControlPlaneMountProfilesUseRelayAndPreserveBasePath(t *testing.T) {
 		}},
 	})
 
-	mount := postJSONAuth[mountProfile](t, server.Client(), testClientToken, server.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{
-		UserID:   "user-1",
-		DeviceID: "device-1",
-		ExportID: "dev-export",
-	})
+	mount := postJSONAuth[mountProfile](t, server.Client(), testClientToken, server.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{ExportID: "dev-export"})
 	if mount.MountURL != "https://nas.example.test/control/dav/relay/" {
 		t.Fatalf("expected relay mount URL %q, got %q", "https://nas.example.test/control/dav/relay/", mount.MountURL)
 	}
 
-	registerNode(t, server.Client(), server.URL+"/api/v1/nodes/register", testNodeBootstrapToken, nodeRegistrationRequest{
+	registration = registerNode(t, server.Client(), server.URL+"/api/v1/nodes/register", testNodeBootstrapToken, nodeRegistrationRequest{
 		MachineID:     "machine-no-target",
 		DisplayName:   "No Target NAS",
 		AgentVersion:  "1.2.3",
 		DirectAddress: nil,
 		RelayAddress:  nil,
+	})
+	syncNodeExports(t, server.Client(), registration.NodeToken, server.URL+"/api/v1/nodes/"+registration.Node.ID+"/exports", nodeExportsRequest{
 		Exports: []storageExportInput{{
 			Label:         "Offline",
 			Path:          "/srv/offline",
+			MountPath:     "/dav/",
 			Protocols:     []string{"webdav"},
 			CapacityBytes: nil,
 			Tags:          []string{},
 		}},
 	})
 
-	postJSONAuthStatus(t, server.Client(), testClientToken, server.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{
-		UserID:   "user-1",
-		DeviceID: "device-2",
-		ExportID: "dev-export-2",
-	}, http.StatusServiceUnavailable)
+	postJSONAuthStatus(t, server.Client(), testClientToken, server.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{ExportID: "dev-export-2"}, http.StatusServiceUnavailable)
 }
 
 func TestControlPlaneCloudProfilesRequireConfiguredBaseURLAndExistingExport(t *testing.T) {
@@ -462,15 +499,18 @@ func TestControlPlaneCloudProfilesRequireConfiguredBaseURLAndExistingExport(t *t
 	defer server.Close()
 
 	directAddress := "http://nas.local:8090"
-	registerNode(t, server.Client(), server.URL+"/api/v1/nodes/register", testNodeBootstrapToken, nodeRegistrationRequest{
+	registration := registerNode(t, server.Client(), server.URL+"/api/v1/nodes/register", testNodeBootstrapToken, nodeRegistrationRequest{
 		MachineID:     "machine-cloud",
 		DisplayName:   "Cloud NAS",
 		AgentVersion:  "1.2.3",
 		DirectAddress: &directAddress,
 		RelayAddress:  nil,
+	})
+	syncNodeExports(t, server.Client(), registration.NodeToken, server.URL+"/api/v1/nodes/"+registration.Node.ID+"/exports", nodeExportsRequest{
 		Exports: []storageExportInput{{
 			Label:         "Photos",
 			Path:          "/srv/photos",
+			MountPath:     "/dav/",
 			Protocols:     []string{"webdav"},
 			CapacityBytes: nil,
 			Tags:          []string{},
@@ -512,6 +552,8 @@ func TestControlPlanePersistsRegistryAcrossAppRestart(t *testing.T) {
 		AgentVersion:  "1.2.3",
 		DirectAddress: &directAddress,
 		RelayAddress:  nil,
+	})
+	syncNodeExports(t, firstServer.Client(), registration.NodeToken, firstServer.URL+"/api/v1/nodes/"+registration.Node.ID+"/exports", nodeExportsRequest{
 		Exports: []storageExportInput{{
 			Label:         "Docs",
 			Path:          "/srv/docs",
@@ -540,11 +582,7 @@ func TestControlPlanePersistsRegistryAcrossAppRestart(t *testing.T) {
 		t.Fatalf("expected persisted mountPath %q, got %q", "/dav/persisted/", exports[0].MountPath)
 	}
 
-	mount := postJSONAuth[mountProfile](t, secondServer.Client(), testClientToken, secondServer.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{
-		UserID:   "user-1",
-		DeviceID: "device-1",
-		ExportID: exports[0].ID,
-	})
+	mount := postJSONAuth[mountProfile](t, secondServer.Client(), testClientToken, secondServer.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{ExportID: exports[0].ID})
 	if mount.MountURL != "http://nas.local:8090/dav/persisted/" {
 		t.Fatalf("expected persisted mount URL %q, got %q", "http://nas.local:8090/dav/persisted/", mount.MountURL)
 	}
@@ -555,6 +593,8 @@ func TestControlPlanePersistsRegistryAcrossAppRestart(t *testing.T) {
 		AgentVersion:  "1.2.4",
 		DirectAddress: &directAddress,
 		RelayAddress:  nil,
+	})
+	syncNodeExports(t, secondServer.Client(), registration.NodeToken, secondServer.URL+"/api/v1/nodes/"+registration.Node.ID+"/exports", nodeExportsRequest{
 		Exports: []storageExportInput{{
 			Label:         "Docs Updated",
 			Path:          "/srv/docs",
@@ -580,16 +620,14 @@ func TestControlPlaneRejectsInvalidRequestsAndEnforcesAuth(t *testing.T) {
 		"displayName":"Primary NAS",
 		"agentVersion":"1.2.3",
 		"directAddress":"http://nas.local:8090",
-		"relayAddress":null,
-		"exports":[{"label":"Docs","path":"/srv/docs","protocols":["webdav"],"capacityBytes":null,"tags":[]}]
+		"relayAddress":null
 	}`, http.StatusUnauthorized)
 
 	postRawJSONAuthStatus(t, server.Client(), testNodeBootstrapToken, server.URL+"/api/v1/nodes/register", `{
 		"machineId":"machine-1",
 		"displayName":"Primary NAS",
 		"agentVersion":"1.2.3",
-		"relayAddress":null,
-		"exports":[{"label":"Docs","path":"/srv/docs","protocols":["webdav"],"capacityBytes":null,"tags":[]}]
+		"relayAddress":null
 	}`, http.StatusBadRequest)
 
 	postRawJSONAuthStatus(t, server.Client(), testNodeBootstrapToken, server.URL+"/api/v1/nodes/register", `{
@@ -597,32 +635,6 @@ func TestControlPlaneRejectsInvalidRequestsAndEnforcesAuth(t *testing.T) {
 		"displayName":"Primary NAS",
 		"agentVersion":"1.2.3",
 		"directAddress":"nas.local:8090",
-		"relayAddress":null,
-		"exports":[{"label":"Docs","path":"/srv/docs","protocols":["webdav"],"capacityBytes":null,"tags":[]}]
-	}`, http.StatusBadRequest)
-
-	postRawJSONAuthStatus(t, server.Client(), testNodeBootstrapToken, server.URL+"/api/v1/nodes/register", `{
-		"machineId":"machine-1",
-		"displayName":"Primary NAS",
-		"agentVersion":"1.2.3",
-		"directAddress":"http://nas.local:8090",
-		"relayAddress":null,
-		"exports":[
-			{"label":"Docs","path":"/srv/docs","mountPath":"/dav/docs/","protocols":["webdav"],"capacityBytes":null,"tags":[]},
-			{"label":"Docs Duplicate","path":"/srv/docs-2","mountPath":"/dav/docs/","protocols":["webdav"],"capacityBytes":null,"tags":[]}
-		]
-	}`, http.StatusBadRequest)
-
-	postRawJSONAuthStatus(t, server.Client(), testNodeBootstrapToken, server.URL+"/api/v1/nodes/register", `{
-		"machineId":"machine-1",
-		"displayName":"Primary NAS",
-		"agentVersion":"1.2.3",
-		"directAddress":"http://nas.local:8090",
-		"relayAddress":null,
-		"exports":[
-			{"label":"Docs","path":"/srv/docs","mountPath":"/dav/docs/","protocols":["webdav"],"capacityBytes":null,"tags":[]},
-			{"label":"Media","path":"/srv/media","protocols":["webdav"],"capacityBytes":null,"tags":[]}
-		]
 	}`, http.StatusBadRequest)
 
 	response := postRawJSONAuth(t, server.Client(), testNodeBootstrapToken, server.URL+"/api/v1/nodes/register", `{
@@ -631,8 +643,7 @@ func TestControlPlaneRejectsInvalidRequestsAndEnforcesAuth(t *testing.T) {
 		"agentVersion":"1.2.3",
 		"directAddress":"http://nas.local:8090",
 		"relayAddress":null,
-		"ignoredTopLevel":"ok",
-		"exports":[{"label":"Docs","path":"/srv/docs","mountPath":"/dav/docs/","protocols":["webdav"],"capacityBytes":null,"tags":[],"ignoredNested":"ok"}]
+		"ignoredTopLevel":"ok"
 	}`)
 	defer response.Body.Close()
 
@@ -652,6 +663,58 @@ func TestControlPlaneRejectsInvalidRequestsAndEnforcesAuth(t *testing.T) {
 	if node.ID != "dev-node" {
 		t.Fatalf("expected node ID %q, got %q", "dev-node", node.ID)
 	}
+
+	putJSONAuthStatus(t, server.Client(), testClientToken, server.URL+"/api/v1/nodes/"+node.ID+"/exports", nodeExportsRequest{
+		Exports: []storageExportInput{{
+			Label:         "Docs",
+			Path:          "/srv/docs",
+			MountPath:     "/dav/docs/",
+			Protocols:     []string{"webdav"},
+			CapacityBytes: nil,
+			Tags:          []string{},
+		}},
+	}, http.StatusUnauthorized)
+
+	putJSONAuthStatus(t, server.Client(), nodeToken, server.URL+"/api/v1/nodes/"+node.ID+"/exports", nodeExportsRequest{
+		Exports: []storageExportInput{
+			{
+				Label:         "Docs",
+				Path:          "/srv/docs",
+				MountPath:     "/dav/docs/",
+				Protocols:     []string{"webdav"},
+				CapacityBytes: nil,
+				Tags:          []string{},
+			},
+			{
+				Label:         "Media",
+				Path:          "/srv/media",
+				Protocols:     []string{"webdav"},
+				CapacityBytes: nil,
+				Tags:          []string{},
+			},
+		},
+	}, http.StatusBadRequest)
+
+	putJSONAuthStatus(t, server.Client(), nodeToken, server.URL+"/api/v1/nodes/"+node.ID+"/exports", nodeExportsRequest{
+		Exports: []storageExportInput{
+			{
+				Label:         "Docs",
+				Path:          "/srv/docs",
+				MountPath:     "/dav/docs/",
+				Protocols:     []string{"webdav"},
+				CapacityBytes: nil,
+				Tags:          []string{},
+			},
+			{
+				Label:         "Docs Duplicate",
+				Path:          "/srv/docs-2",
+				MountPath:     "/dav/docs/",
+				Protocols:     []string{"webdav"},
+				CapacityBytes: nil,
+				Tags:          []string{},
+			},
+		},
+	}, http.StatusBadRequest)
 
 	postJSONAuthStatus(t, server.Client(), testClientToken, server.URL+"/api/v1/nodes/"+node.ID+"/heartbeat", nodeHeartbeatRequest{
 		NodeID:     node.ID,
@@ -686,9 +749,9 @@ func TestControlPlaneRejectsInvalidRequestsAndEnforcesAuth(t *testing.T) {
 	getStatusWithAuth(t, server.Client(), "", server.URL+"/api/v1/exports", http.StatusUnauthorized)
 	getStatusWithAuth(t, server.Client(), "wrong-client-token", server.URL+"/api/v1/exports", http.StatusUnauthorized)
 
+	postRawJSONAuthStatus(t, server.Client(), testClientToken, server.URL+"/api/v1/mount-profiles/issue", `{}`, http.StatusBadRequest)
+
 	postJSONAuthStatus(t, server.Client(), testClientToken, server.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{
-		UserID:   "user-1",
-		DeviceID: "device-1",
 		ExportID: "missing-export",
 	}, http.StatusNotFound)
 
@@ -710,6 +773,12 @@ func newTestControlPlaneServer(t *testing.T, config appConfig) (*app, *httptest.
 	}
 	if config.nodeBootstrapToken == "" {
 		config.nodeBootstrapToken = testNodeBootstrapToken
+	}
+	if config.davAuthSecret == "" {
+		config.davAuthSecret = "test-dav-auth-secret"
+	}
+	if config.davCredentialTTL == 0 {
+		config.davCredentialTTL = time.Hour
 	}
 
 	app, err := newApp(config, testControlPlaneNow)
@@ -753,6 +822,25 @@ func registerNode(t *testing.T, client *http.Client, endpoint string, token stri
 		Node:      node,
 		NodeToken: strings.TrimSpace(response.Header.Get(controlPlaneNodeTokenKey)),
 	}
+}
+
+func syncNodeExports(t *testing.T, client *http.Client, token string, endpoint string, payload nodeExportsRequest) []storageExport {
+	t.Helper()
+
+	response := putJSONAuthResponse(t, client, token, endpoint, payload)
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		responseBody, _ := io.ReadAll(response.Body)
+		t.Fatalf("put %s: expected status 200, got %d: %s", endpoint, response.StatusCode, responseBody)
+	}
+
+	var exports []storageExport
+	if err := json.NewDecoder(response.Body).Decode(&exports); err != nil {
+		t.Fatalf("decode %s response: %v", endpoint, err)
+	}
+
+	return exports
 }
 
 func getJSON[T any](t *testing.T, client *http.Client, endpoint string) T {
@@ -836,7 +924,31 @@ func postJSONAuthStatus(t *testing.T, client *http.Client, token string, endpoin
 	}
 }
 
+func putJSONAuthStatus(t *testing.T, client *http.Client, token string, endpoint string, payload any, expectedStatus int) {
+	t.Helper()
+
+	response := putJSONAuthResponse(t, client, token, endpoint, payload)
+	defer response.Body.Close()
+
+	if response.StatusCode != expectedStatus {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("put %s: expected status %d, got %d: %s", endpoint, expectedStatus, response.StatusCode, body)
+	}
+}
+
 func postJSONAuthResponse(t *testing.T, client *http.Client, token string, endpoint string, payload any) *http.Response {
+	t.Helper()
+
+	return jsonAuthResponse(t, client, http.MethodPost, token, endpoint, payload)
+}
+
+func putJSONAuthResponse(t *testing.T, client *http.Client, token string, endpoint string, payload any) *http.Response {
+	t.Helper()
+
+	return jsonAuthResponse(t, client, http.MethodPut, token, endpoint, payload)
+}
+
+func jsonAuthResponse(t *testing.T, client *http.Client, method string, token string, endpoint string, payload any) *http.Response {
 	t.Helper()
 
 	body, err := json.Marshal(payload)
@@ -844,7 +956,7 @@ func postJSONAuthResponse(t *testing.T, client *http.Client, token string, endpo
 		t.Fatalf("marshal payload for %s: %v", endpoint, err)
 	}
 
-	return doRequest(t, client, http.MethodPost, endpoint, bytes.NewReader(body), authHeaders(token))
+	return doRequest(t, client, method, endpoint, bytes.NewReader(body), authHeaders(token))
 }
 
 func postRawJSONAuthStatus(t *testing.T, client *http.Client, token string, endpoint string, raw string, expectedStatus int) {

@@ -111,7 +111,7 @@ self-hosted mount flow.
 
 - node registration
 - node heartbeat
-- export inventory
+- export inventory via a dedicated sync endpoint
 
 ### Web control plane -> control-server
 
@@ -123,7 +123,20 @@ self-hosted mount flow.
 ### Local device -> control-server
 
 - fetch mount instructions
-- receive issued WebDAV URL and credentials or token material
+- receive issued WebDAV URL and standard WebDAV credentials
+  - username
+  - password
+  - expiresAt
+
+## Initial backend route sketch
+
+The first backend contract should stay narrow:
+
+- `POST /api/v1/nodes/register`
+- `POST /api/v1/nodes/{nodeId}/heartbeat`
+- `PUT /api/v1/nodes/{nodeId}/exports`
+- `GET /api/v1/exports`
+- `POST /api/v1/mount-profiles/issue`
 
 ### Control-server internal
 

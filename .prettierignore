@@ -1,7 +1,9 @@
 .git
+.agents
 .next
 .turbo
 coverage
 dist
 node_modules
 apps/web/.next
+skills-lock.json

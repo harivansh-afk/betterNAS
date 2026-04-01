@@ -35,6 +35,8 @@ services:
       BETTERNAS_CONTROL_PLANE_STATE_PATH: /var/lib/betternas/control-plane/state.json
       BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN: ${BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN}
       BETTERNAS_CONTROL_PLANE_NODE_BOOTSTRAP_TOKEN: ${BETTERNAS_CONTROL_PLANE_NODE_BOOTSTRAP_TOKEN}
+      BETTERNAS_DAV_AUTH_SECRET: ${BETTERNAS_DAV_AUTH_SECRET}
+      BETTERNAS_DAV_CREDENTIAL_TTL: ${BETTERNAS_DAV_CREDENTIAL_TTL}
       BETTERNAS_EXAMPLE_MOUNT_URL: ${BETTERNAS_EXAMPLE_MOUNT_URL}
       BETTERNAS_NODE_DIRECT_ADDRESS: ${BETTERNAS_NODE_DIRECT_ADDRESS}
     ports:
@@ -54,6 +56,15 @@ services:
     environment:
       PORT: 8090
       BETTERNAS_EXPORT_PATH: /data/export
+      BETTERNAS_EXPORT_PATHS_JSON: '["/data/export"]'
+      BETTERNAS_CONTROL_PLANE_URL: http://control-plane:3000
+      BETTERNAS_CONTROL_PLANE_NODE_BOOTSTRAP_TOKEN: ${BETTERNAS_CONTROL_PLANE_NODE_BOOTSTRAP_TOKEN}
+      BETTERNAS_NODE_TOKEN_PATH: /var/lib/betternas/node-agent/node-token
+      BETTERNAS_NODE_MACHINE_ID: ${BETTERNAS_NODE_MACHINE_ID}
+      BETTERNAS_NODE_DISPLAY_NAME: ${BETTERNAS_NODE_DISPLAY_NAME}
+      BETTERNAS_NODE_DIRECT_ADDRESS: ${BETTERNAS_NODE_DIRECT_ADDRESS}
+      BETTERNAS_DAV_AUTH_SECRET: ${BETTERNAS_DAV_AUTH_SECRET}
+      BETTERNAS_VERSION: ${BETTERNAS_VERSION}
     ports:
       - "${BETTERNAS_NODE_AGENT_PORT}:8090"
     healthcheck:
@@ -63,6 +74,7 @@ services:
       retries: 12
     volumes:
       - ${BETTERNAS_EXPORT_PATH}:/data/export
+      - node-agent-data:/var/lib/betternas/node-agent
 
   nextcloud:
     image: nextcloud:31-apache
@@ -91,6 +103,7 @@ services:
 
 volumes:
   control-plane-data:
+  node-agent-data:
   nextcloud-data:
   nextcloud-custom-apps:
   postgres-data:

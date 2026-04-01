@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,11 +17,15 @@ const (
 )
 
 type appConfig struct {
-	exportPaths []string
+	exportPaths   []string
+	nodeID        string
+	davAuthSecret string
 }
 
 type app struct {
-	exportMounts []exportMount
+	nodeID        string
+	davAuthSecret string
+	exportMounts  []exportMount
 }
 
 type exportMount struct {
@@ -32,12 +34,26 @@ type exportMount struct {
 }
 
 func newApp(config appConfig) (*app, error) {
+	config.nodeID = strings.TrimSpace(config.nodeID)
+	if config.nodeID == "" {
+		return nil, errors.New("nodeID is required")
+	}
+
+	config.davAuthSecret = strings.TrimSpace(config.davAuthSecret)
+	if config.davAuthSecret == "" {
+		return nil, errors.New("davAuthSecret is required")
+	}
+
 	exportMounts, err := buildExportMounts(config.exportPaths)
 	if err != nil {
 		return nil, err
 	}
 
-	return &app{exportMounts: exportMounts}, nil
+	return &app{
+		nodeID:        config.nodeID,
+		davAuthSecret: config.davAuthSecret,
+		exportMounts:  exportMounts,
+	}, nil
 }
 
 func newAppFromEnv() (*app, error) {
@@ -46,7 +62,25 @@ func newAppFromEnv() (*app, error) {
 		return nil, err
 	}
 
-	return newApp(appConfig{exportPaths: exportPaths})
+	davAuthSecret, err := requiredEnv("BETTERNAS_DAV_AUTH_SECRET")
+	if err != nil {
+		return nil, err
+	}
+
+	nodeID := strings.TrimSpace(env("BETTERNAS_NODE_ID", ""))
+	if strings.TrimSpace(env("BETTERNAS_CONTROL_PLANE_URL", "")) != "" {
+		bootstrapResult, err := bootstrapNodeAgentFromEnv(exportPaths)
+		if err != nil {
+			return nil, err
+		}
+		nodeID = bootstrapResult.nodeID
+	}
+
+	return newApp(appConfig{
+		exportPaths:   exportPaths,
+		nodeID:        nodeID,
+		davAuthSecret: davAuthSecret,
+	})
 }
 
 func exportPathsFromEnv() ([]string, error) {
@@ -126,10 +160,36 @@ func (a *app) handler() http.Handler {
 			FileSystem: webdav.Dir(mount.exportPath),
 			LockSystem: webdav.NewMemLS(),
 		}
-		mux.Handle(mount.mountPath, dav)
+		mux.Handle(mount.mountPath, a.requireDAVAuth(mount, dav))
 	}
 
 	return mux
+}
+
+func (a *app) requireDAVAuth(mount exportMount, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		username, password, ok := r.BasicAuth()
+		if !ok {
+			writeDAVUnauthorized(w)
+			return
+		}
+
+		claims, err := verifyMountCredential(a.davAuthSecret, password)
+		if err != nil {
+			writeDAVUnauthorized(w)
+			return
+		}
+		if claims.NodeID != a.nodeID || claims.MountPath != mount.mountPath || claims.Username != username {
+			writeDAVUnauthorized(w)
+			return
+		}
+		if claims.Readonly && !isDAVReadMethod(r.Method) {
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func mountProfilePathForExport(exportPath string, exportCount int) string {
@@ -147,6 +207,5 @@ func scopedMountPathForExport(exportPath string) string {
 }
 
 func exportRouteSlug(exportPath string) string {
-	sum := sha256.Sum256([]byte(strings.TrimSpace(exportPath)))
-	return hex.EncodeToString(sum[:])
+	return stableExportRouteSlug(exportPath)
 }

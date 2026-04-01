@@ -97,8 +97,8 @@ The first proven slice is:
 
 1. boot the stack with `pnpm stack:up`
 2. verify it with `pnpm stack:verify`
-3. get the WebDAV mount URL
-4. mount it in Finder
+3. get the WebDAV mount profile from the control plane
+4. mount it in Finder with the issued credentials
 
 If the stack is running on a remote machine, tunnel the WebDAV port first, then
 use Finder `Connect to Server` with the tunneled URL.

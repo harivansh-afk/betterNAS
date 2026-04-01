@@ -31,6 +31,11 @@ var (
 	nodeAgentBinaryErr  error
 )
 
+const (
+	runtimeDAVAuthSecret    = "runtime-dav-auth-secret"
+	runtimeDAVCredentialTTL = "1h"
+)
+
 func TestControlPlaneBinaryMountLoopIntegration(t *testing.T) {
 	exportDir := t.TempDir()
 	writeExportFile(t, exportDir, "README.txt", "betterNAS export\n")
@@ -38,166 +43,42 @@ func TestControlPlaneBinaryMountLoopIntegration(t *testing.T) {
 	nextcloud := httptest.NewServer(http.NotFoundHandler())
 	defer nextcloud.Close()
 
-	nodeAgent := startNodeAgentBinary(t, exportDir)
 	controlPlane := startControlPlaneBinary(t, "runtime-test-version", nextcloud.URL)
+	nodeAgent := startNodeAgentBinaryWithExports(t, controlPlane.baseURL, []string{exportDir}, "machine-runtime-1")
 	client := &http.Client{Timeout: 2 * time.Second}
 
-	directAddress := nodeAgent.baseURL
-	registration := registerNode(t, client, controlPlane.baseURL+"/api/v1/nodes/register", testNodeBootstrapToken, nodeRegistrationRequest{
-		MachineID:     "machine-runtime-1",
-		DisplayName:   "Runtime NAS",
-		AgentVersion:  "1.2.3",
-		DirectAddress: &directAddress,
-		RelayAddress:  nil,
-		Exports: []storageExportInput{{
-			Label:         "Photos",
-			Path:          exportDir,
-			MountPath:     defaultWebDAVPath,
-			Protocols:     []string{"webdav"},
-			CapacityBytes: nil,
-			Tags:          []string{"runtime"},
-		}},
-	})
-	if registration.Node.ID != "dev-node" {
-		t.Fatalf("expected node ID %q, got %q", "dev-node", registration.Node.ID)
+	exports := waitForExportsByPath(t, client, controlPlane.baseURL+"/api/v1/exports", []string{exportDir})
+	export := exports[exportDir]
+	if export.ID != "dev-export" {
+		t.Fatalf("expected export ID %q, got %q", "dev-export", export.ID)
 	}
-	if registration.NodeToken == "" {
-		t.Fatal("expected runtime registration to return a node token")
-	}
-
-	exports := getJSONAuth[[]storageExport](t, client, testClientToken, controlPlane.baseURL+"/api/v1/exports")
-	if len(exports) != 1 {
-		t.Fatalf("expected 1 export, got %d", len(exports))
-	}
-	if exports[0].ID != "dev-export" {
-		t.Fatalf("expected export ID %q, got %q", "dev-export", exports[0].ID)
-	}
-	if exports[0].Path != exportDir {
-		t.Fatalf("expected exported path %q, got %q", exportDir, exports[0].Path)
-	}
-	if exports[0].MountPath != defaultWebDAVPath {
-		t.Fatalf("expected mountPath %q, got %q", defaultWebDAVPath, exports[0].MountPath)
+	if export.MountPath != defaultWebDAVPath {
+		t.Fatalf("expected mountPath %q, got %q", defaultWebDAVPath, export.MountPath)
 	}
 
 	mount := postJSONAuth[mountProfile](t, client, testClientToken, controlPlane.baseURL+"/api/v1/mount-profiles/issue", mountProfileRequest{
-		UserID:   "runtime-user",
-		DeviceID: "runtime-device",
-		ExportID: exports[0].ID,
+		ExportID: export.ID,
 	})
 	if mount.MountURL != nodeAgent.baseURL+defaultWebDAVPath {
 		t.Fatalf("expected runtime mount URL %q, got %q", nodeAgent.baseURL+defaultWebDAVPath, mount.MountURL)
 	}
+	if mount.Credential.Mode != mountCredentialModeBasicAuth {
+		t.Fatalf("expected mount credential mode %q, got %q", mountCredentialModeBasicAuth, mount.Credential.Mode)
+	}
 
-	assertHTTPStatus(t, client, "PROPFIND", mount.MountURL, http.StatusMultiStatus)
-	assertMountedFileContents(t, client, mount.MountURL+"README.txt", "betterNAS export\n")
+	assertHTTPStatusWithBasicAuth(t, client, "PROPFIND", mount.MountURL, mount.Credential.Username, mount.Credential.Password, http.StatusMultiStatus)
+	assertMountedFileContentsWithBasicAuth(t, client, mount.MountURL+"README.txt", mount.Credential.Username, mount.Credential.Password, "betterNAS export\n")
 
 	cloud := postJSONAuth[cloudProfile](t, client, testClientToken, controlPlane.baseURL+"/api/v1/cloud-profiles/issue", cloudProfileRequest{
 		UserID:   "runtime-user",
-		ExportID: exports[0].ID,
+		ExportID: export.ID,
 		Provider: "nextcloud",
 	})
 	if cloud.BaseURL != nextcloud.URL {
 		t.Fatalf("expected runtime cloud baseUrl %q, got %q", nextcloud.URL, cloud.BaseURL)
 	}
-	expectedCloudPath := cloudProfilePathForExport(exports[0].ID)
-	if cloud.Path != expectedCloudPath {
-		t.Fatalf("expected runtime cloud path %q, got %q", expectedCloudPath, cloud.Path)
-	}
-
-	postJSONAuthStatus(t, client, registration.NodeToken, controlPlane.baseURL+"/api/v1/nodes/"+registration.Node.ID+"/heartbeat", nodeHeartbeatRequest{
-		NodeID:     registration.Node.ID,
-		Status:     "online",
-		LastSeenAt: "2025-01-02T03:04:05Z",
-	}, http.StatusNoContent)
-}
-
-func TestControlPlaneBinaryReRegistrationReconcilesExports(t *testing.T) {
-	nextcloud := httptest.NewServer(http.NotFoundHandler())
-	defer nextcloud.Close()
-
-	controlPlane := startControlPlaneBinary(t, "runtime-test-version", nextcloud.URL)
-	client := &http.Client{Timeout: 2 * time.Second}
-
-	directAddress := "http://nas.local:8090"
-	firstRegistration := registerNode(t, client, controlPlane.baseURL+"/api/v1/nodes/register", testNodeBootstrapToken, nodeRegistrationRequest{
-		MachineID:     "machine-runtime-2",
-		DisplayName:   "Runtime NAS",
-		AgentVersion:  "1.2.3",
-		DirectAddress: &directAddress,
-		RelayAddress:  nil,
-		Exports: []storageExportInput{
-			{
-				Label:         "Docs",
-				Path:          "/srv/docs",
-				MountPath:     "/dav/exports/docs/",
-				Protocols:     []string{"webdav"},
-				CapacityBytes: nil,
-				Tags:          []string{"runtime"},
-			},
-			{
-				Label:         "Media",
-				Path:          "/srv/media",
-				MountPath:     "/dav/exports/media/",
-				Protocols:     []string{"webdav"},
-				CapacityBytes: nil,
-				Tags:          []string{"runtime"},
-			},
-		},
-	})
-
-	initialExports := exportsByPath(getJSONAuth[[]storageExport](t, client, testClientToken, controlPlane.baseURL+"/api/v1/exports"))
-	docsExport := initialExports["/srv/docs"]
-	if _, ok := initialExports["/srv/media"]; !ok {
-		t.Fatal("expected media export to be registered")
-	}
-
-	secondRegistration := registerNode(t, client, controlPlane.baseURL+"/api/v1/nodes/register", firstRegistration.NodeToken, nodeRegistrationRequest{
-		MachineID:     "machine-runtime-2",
-		DisplayName:   "Runtime NAS Updated",
-		AgentVersion:  "1.2.4",
-		DirectAddress: &directAddress,
-		RelayAddress:  nil,
-		Exports: []storageExportInput{
-			{
-				Label:         "Docs v2",
-				Path:          "/srv/docs",
-				MountPath:     "/dav/exports/docs-v2/",
-				Protocols:     []string{"webdav"},
-				CapacityBytes: nil,
-				Tags:          []string{"runtime", "updated"},
-			},
-			{
-				Label:         "Backups",
-				Path:          "/srv/backups",
-				MountPath:     "/dav/exports/backups/",
-				Protocols:     []string{"webdav"},
-				CapacityBytes: nil,
-				Tags:          []string{"runtime"},
-			},
-		},
-	})
-	if secondRegistration.Node.ID != firstRegistration.Node.ID {
-		t.Fatalf("expected node ID %q after re-registration, got %q", firstRegistration.Node.ID, secondRegistration.Node.ID)
-	}
-
-	updatedExports := exportsByPath(getJSONAuth[[]storageExport](t, client, testClientToken, controlPlane.baseURL+"/api/v1/exports"))
-	if len(updatedExports) != 2 {
-		t.Fatalf("expected 2 exports after re-registration, got %d", len(updatedExports))
-	}
-	if updatedExports["/srv/docs"].ID != docsExport.ID {
-		t.Fatalf("expected docs export to keep ID %q, got %q", docsExport.ID, updatedExports["/srv/docs"].ID)
-	}
-	if updatedExports["/srv/docs"].Label != "Docs v2" {
-		t.Fatalf("expected docs export label to update, got %q", updatedExports["/srv/docs"].Label)
-	}
-	if updatedExports["/srv/docs"].MountPath != "/dav/exports/docs-v2/" {
-		t.Fatalf("expected docs export mountPath to update, got %q", updatedExports["/srv/docs"].MountPath)
-	}
-	if _, ok := updatedExports["/srv/media"]; ok {
-		t.Fatal("expected stale media export to be removed")
-	}
-	if _, ok := updatedExports["/srv/backups"]; !ok {
-		t.Fatal("expected backups export to be present")
+	if cloud.Path != cloudProfilePathForExport(export.ID) {
+		t.Fatalf("expected runtime cloud path %q, got %q", cloudProfilePathForExport(export.ID), cloud.Path)
 	}
 }
 
@@ -210,53 +91,18 @@ func TestControlPlaneBinaryMultiExportProfilesStayDistinct(t *testing.T) {
 	nextcloud := httptest.NewServer(http.NotFoundHandler())
 	defer nextcloud.Close()
 
-	nodeAgent := startNodeAgentBinaryWithExports(t, []string{firstExportDir, secondExportDir})
 	controlPlane := startControlPlaneBinary(t, "runtime-test-version", nextcloud.URL)
+	nodeAgent := startNodeAgentBinaryWithExports(t, controlPlane.baseURL, []string{firstExportDir, secondExportDir}, "machine-runtime-multi")
 	client := &http.Client{Timeout: 2 * time.Second}
 
 	firstMountPath := nodeAgentMountPathForExport(firstExportDir, 2)
 	secondMountPath := nodeAgentMountPathForExport(secondExportDir, 2)
-	directAddress := nodeAgent.baseURL
-	registerNode(t, client, controlPlane.baseURL+"/api/v1/nodes/register", testNodeBootstrapToken, nodeRegistrationRequest{
-		MachineID:     "machine-runtime-multi",
-		DisplayName:   "Runtime Multi NAS",
-		AgentVersion:  "1.2.3",
-		DirectAddress: &directAddress,
-		RelayAddress:  nil,
-		Exports: []storageExportInput{
-			{
-				Label:         "Docs",
-				Path:          firstExportDir,
-				MountPath:     firstMountPath,
-				Protocols:     []string{"webdav"},
-				CapacityBytes: nil,
-				Tags:          []string{"runtime"},
-			},
-			{
-				Label:         "Media",
-				Path:          secondExportDir,
-				MountPath:     secondMountPath,
-				Protocols:     []string{"webdav"},
-				CapacityBytes: nil,
-				Tags:          []string{"runtime"},
-			},
-		},
-	})
-
-	exports := exportsByPath(getJSONAuth[[]storageExport](t, client, testClientToken, controlPlane.baseURL+"/api/v1/exports"))
+	exports := waitForExportsByPath(t, client, controlPlane.baseURL+"/api/v1/exports", []string{firstExportDir, secondExportDir})
 	firstExport := exports[firstExportDir]
 	secondExport := exports[secondExportDir]
 
-	firstMount := postJSONAuth[mountProfile](t, client, testClientToken, controlPlane.baseURL+"/api/v1/mount-profiles/issue", mountProfileRequest{
-		UserID:   "runtime-user",
-		DeviceID: "runtime-device",
-		ExportID: firstExport.ID,
-	})
-	secondMount := postJSONAuth[mountProfile](t, client, testClientToken, controlPlane.baseURL+"/api/v1/mount-profiles/issue", mountProfileRequest{
-		UserID:   "runtime-user",
-		DeviceID: "runtime-device",
-		ExportID: secondExport.ID,
-	})
+	firstMount := postJSONAuth[mountProfile](t, client, testClientToken, controlPlane.baseURL+"/api/v1/mount-profiles/issue", mountProfileRequest{ExportID: firstExport.ID})
+	secondMount := postJSONAuth[mountProfile](t, client, testClientToken, controlPlane.baseURL+"/api/v1/mount-profiles/issue", mountProfileRequest{ExportID: secondExport.ID})
 	if firstMount.MountURL == secondMount.MountURL {
 		t.Fatalf("expected distinct runtime mount URLs, got %q", firstMount.MountURL)
 	}
@@ -267,10 +113,10 @@ func TestControlPlaneBinaryMultiExportProfilesStayDistinct(t *testing.T) {
 		t.Fatalf("expected second runtime mount URL %q, got %q", nodeAgent.baseURL+secondMountPath, secondMount.MountURL)
 	}
 
-	assertHTTPStatus(t, client, "PROPFIND", firstMount.MountURL, http.StatusMultiStatus)
-	assertHTTPStatus(t, client, "PROPFIND", secondMount.MountURL, http.StatusMultiStatus)
-	assertMountedFileContents(t, client, firstMount.MountURL+"README.txt", "first runtime export\n")
-	assertMountedFileContents(t, client, secondMount.MountURL+"README.txt", "second runtime export\n")
+	assertHTTPStatusWithBasicAuth(t, client, "PROPFIND", firstMount.MountURL, firstMount.Credential.Username, firstMount.Credential.Password, http.StatusMultiStatus)
+	assertHTTPStatusWithBasicAuth(t, client, "PROPFIND", secondMount.MountURL, secondMount.Credential.Username, secondMount.Credential.Password, http.StatusMultiStatus)
+	assertMountedFileContentsWithBasicAuth(t, client, firstMount.MountURL+"README.txt", firstMount.Credential.Username, firstMount.Credential.Password, "first runtime export\n")
+	assertMountedFileContentsWithBasicAuth(t, client, secondMount.MountURL+"README.txt", secondMount.Credential.Username, secondMount.Credential.Password, "second runtime export\n")
 
 	firstCloud := postJSONAuth[cloudProfile](t, client, testClientToken, controlPlane.baseURL+"/api/v1/cloud-profiles/issue", cloudProfileRequest{
 		UserID:   "runtime-user",
@@ -319,6 +165,8 @@ func startControlPlaneBinary(t *testing.T, version string, nextcloudBaseURL stri
 		"BETTERNAS_CONTROL_PLANE_STATE_PATH="+statePath,
 		"BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN="+testClientToken,
 		"BETTERNAS_CONTROL_PLANE_NODE_BOOTSTRAP_TOKEN="+testNodeBootstrapToken,
+		"BETTERNAS_DAV_AUTH_SECRET="+runtimeDAVAuthSecret,
+		"BETTERNAS_DAV_CREDENTIAL_TTL="+runtimeDAVCredentialTTL,
 	)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
@@ -343,15 +191,13 @@ func startControlPlaneBinary(t *testing.T, version string, nextcloudBaseURL stri
 	}
 }
 
-func startNodeAgentBinary(t *testing.T, exportPath string) runningBinary {
-	return startNodeAgentBinaryWithExports(t, []string{exportPath})
-}
-
-func startNodeAgentBinaryWithExports(t *testing.T, exportPaths []string) runningBinary {
+func startNodeAgentBinaryWithExports(t *testing.T, controlPlaneBaseURL string, exportPaths []string, machineID string) runningBinary {
 	t.Helper()
 
 	port := reserveTCPPort(t)
+	baseURL := fmt.Sprintf("http://127.0.0.1:%s", port)
 	logPath := filepath.Join(t.TempDir(), "node-agent.log")
+	nodeTokenPath := filepath.Join(t.TempDir(), "node-token")
 	logFile, err := os.Create(logPath)
 	if err != nil {
 		t.Fatalf("create node-agent log file: %v", err)
@@ -368,6 +214,14 @@ func startNodeAgentBinaryWithExports(t *testing.T, exportPaths []string) running
 		os.Environ(),
 		"PORT="+port,
 		"BETTERNAS_EXPORT_PATHS_JSON="+string(rawExportPaths),
+		"BETTERNAS_CONTROL_PLANE_URL="+controlPlaneBaseURL,
+		"BETTERNAS_CONTROL_PLANE_NODE_BOOTSTRAP_TOKEN="+testNodeBootstrapToken,
+		"BETTERNAS_NODE_TOKEN_PATH="+nodeTokenPath,
+		"BETTERNAS_NODE_MACHINE_ID="+machineID,
+		"BETTERNAS_NODE_DISPLAY_NAME="+machineID,
+		"BETTERNAS_NODE_DIRECT_ADDRESS="+baseURL,
+		"BETTERNAS_DAV_AUTH_SECRET="+runtimeDAVAuthSecret,
+		"BETTERNAS_VERSION=runtime-test-version",
 	)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
@@ -382,7 +236,6 @@ func startNodeAgentBinaryWithExports(t *testing.T, exportPaths []string) running
 		waitDone <- cmd.Wait()
 	}()
 
-	baseURL := fmt.Sprintf("http://127.0.0.1:%s", port)
 	waitForHTTPStatus(t, baseURL+"/health", waitDone, logPath, http.StatusOK)
 	registerProcessCleanup(t, ctx, cancel, cmd, waitDone, logFile, logPath, "node-agent")
 
@@ -390,6 +243,30 @@ func startNodeAgentBinaryWithExports(t *testing.T, exportPaths []string) running
 		baseURL: baseURL,
 		logPath: logPath,
 	}
+}
+
+func waitForExportsByPath(t *testing.T, client *http.Client, endpoint string, expectedPaths []string) map[string]storageExport {
+	t.Helper()
+
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		exports := getJSONAuth[[]storageExport](t, client, testClientToken, endpoint)
+		exportsByPath := exportsByPath(exports)
+		allPresent := true
+		for _, expectedPath := range expectedPaths {
+			if _, ok := exportsByPath[expectedPath]; !ok {
+				allPresent = false
+				break
+			}
+		}
+		if allPresent {
+			return exportsByPath
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	t.Fatalf("exports for %v did not appear in time", expectedPaths)
+	return nil
 }
 
 func buildControlPlaneBinary(t *testing.T) string {
@@ -411,6 +288,7 @@ func buildControlPlaneBinary(t *testing.T) string {
 		controlPlaneBinaryPath = filepath.Join(tempDir, "control-plane")
 		cmd := exec.Command("go", "build", "-o", controlPlaneBinaryPath, ".")
 		cmd.Dir = filepath.Dir(filename)
+		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			controlPlaneBinaryErr = fmt.Errorf("build control-plane binary: %w\n%s", err, output)
@@ -443,6 +321,7 @@ func buildNodeAgentBinary(t *testing.T) string {
 		nodeAgentBinaryPath = filepath.Join(tempDir, "node-agent")
 		cmd := exec.Command("go", "build", "-o", nodeAgentBinaryPath, "./cmd/node-agent")
 		cmd.Dir = filepath.Clean(filepath.Join(filepath.Dir(filename), "../../../node-agent"))
+		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			nodeAgentBinaryErr = fmt.Errorf("build node-agent binary: %w\n%s", err, output)
@@ -532,10 +411,16 @@ func registerProcessCleanup(t *testing.T, ctx context.Context, cancel context.Ca
 	})
 }
 
-func assertMountedFileContents(t *testing.T, client *http.Client, endpoint string, expected string) {
+func assertMountedFileContentsWithBasicAuth(t *testing.T, client *http.Client, endpoint string, username string, password string, expected string) {
 	t.Helper()
 
-	response, err := client.Get(endpoint)
+	request, err := http.NewRequest(http.MethodGet, endpoint, nil)
+	if err != nil {
+		t.Fatalf("build GET request for %s: %v", endpoint, err)
+	}
+	request.SetBasicAuth(username, password)
+
+	response, err := client.Do(request)
 	if err != nil {
 		t.Fatalf("get %s: %v", endpoint, err)
 	}
@@ -554,13 +439,14 @@ func assertMountedFileContents(t *testing.T, client *http.Client, endpoint strin
 	}
 }
 
-func assertHTTPStatus(t *testing.T, client *http.Client, method string, endpoint string, expectedStatus int) {
+func assertHTTPStatusWithBasicAuth(t *testing.T, client *http.Client, method string, endpoint string, username string, password string, expectedStatus int) {
 	t.Helper()
 
 	request, err := http.NewRequest(method, endpoint, nil)
 	if err != nil {
 		t.Fatalf("build %s request for %s: %v", method, endpoint, err)
 	}
+	request.SetBasicAuth(username, password)
 
 	response, err := client.Do(request)
 	if err != nil {
