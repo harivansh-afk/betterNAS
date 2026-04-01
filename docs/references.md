@@ -32,27 +32,57 @@ The goal is simple: do not lose the external pieces that give us leverage.
 
 ## Control plane
 
-### Current scaffold
-
-- current control-plane seed
-  - path: [exapps/control-plane](/home/rathi/Documents/GitHub/betterNAS/exapps/control-plane)
-  - why: existing TypeScript seed for the first real backend
-
 ### Backend and infra references
 
-- Fastify
-  - repo: https://github.com/fastify/fastify
-  - why: likely good fit for a TypeScript API backend
+- Go routing enhancements
+  - docs: https://go.dev/blog/routing-enhancements
+  - why: best low-dependency baseline if we stay with the standard library
+
+- `chi`
+  - repo: https://github.com/go-chi/chi
+  - why: thin stdlib-friendly router if we want middleware and route groups
 
 - PostgreSQL
   - docs: https://www.postgresql.org/docs/
   - why: source of truth for product metadata
 
+- `pgx`
+  - repo: https://github.com/jackc/pgx
+  - why: Postgres-first Go driver and toolkit
+
+- `sqlc`
+  - repo: https://github.com/sqlc-dev/sqlc
+  - why: typed query generation for Go
+
 - Redis
   - docs: https://redis.io/docs/latest/
   - why: cache, jobs, ephemeral coordination
 
-### SSH access / gateway references
+- `go-redis`
+  - repo: https://github.com/redis/go-redis
+  - why: primary Redis client for Go
+
+- `asynq`
+  - repo: https://github.com/hibiken/asynq
+  - why: practical Redis-backed background jobs
+
+- `koanf`
+  - repo: https://github.com/knadh/koanf
+  - why: layered config if the control plane grows beyond env-only config
+
+- `envconfig`
+  - repo: https://github.com/kelseyhightower/envconfig
+  - why: small env-only config loader
+
+- `log/slog`
+  - docs: https://pkg.go.dev/log/slog
+  - why: structured logging without extra dependencies
+
+- `oapi-codegen`
+  - repo: https://github.com/oapi-codegen/oapi-codegen
+  - why: generate Go and TS surfaces from OpenAPI with less drift
+
+### SSH access / gateway reference
 
 - `sshpiper`
   - repo: https://github.com/tg123/sshpiper
@@ -75,6 +105,18 @@ The goal is simple: do not lose the external pieces that give us leverage.
 - Apple developer docs
   - docs: https://developer.apple.com/documentation/
   - why: Keychain, launch agents, desktop helpers, future native integration
+
+- Keychain data protection
+  - docs: https://support.apple.com/guide/security/keychain-data-protection-secb0694df1a/web
+  - why: baseline secret-storage model for device credentials
+
+- Finder Sync extensions
+  - docs: https://developer.apple.com/library/archive/documentation/General/Conceptual/ExtensibilityPG/Finder.html
+  - why: future helper-app integration pattern if Finder UX grows
+
+- WebDAV RFC 4918
+  - docs: https://www.rfc-editor.org/rfc/rfc4918
+  - why: protocol semantics and caveats
 
 ## Cloud / web layer
 

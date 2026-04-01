@@ -22,3 +22,16 @@ Read these in order:
 - the control plane is the system of record.
 - the NAS node serves bytes directly whenever possible.
 - Nextcloud is an optional cloud/web adapter, not the product center.
+
+## Monorepo
+
+- `apps/web`: Next.js control-plane UI
+- `apps/control-plane`: Go control-plane service
+- `apps/node-agent`: Go NAS runtime / WebDAV node
+- `apps/nextcloud-app`: optional Nextcloud adapter
+- `packages/contracts`: canonical shared contracts
+- `packages/sdk-ts`: TypeScript SDK surface for the web app
+- `packages/ui`: shared React UI
+- `infra/docker`: local Docker runtime
+
+The root planning and delegation guide lives in [skeleton.md](/home/rathi/Documents/GitHub/betterNAS/skeleton.md).

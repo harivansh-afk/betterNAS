@@ -49,7 +49,7 @@ The other three parts are execution surfaces:
 | Part | Steal first | Write ourselves |
 |---|---|---|
 | NAS node | NixOS/Nix module patterns, existing WebDAV servers | node agent, export model, node registration flow |
-| Control plane | existing repo scaffold, TS stack, Postgres/Redis patterns | product domain model, policy engine, mount/cloud APIs, registry |
+| Control plane | Go stdlib routing, pgx/sqlc, go-redis/asynq, OpenAPI codegen | product domain model, policy engine, mount/cloud APIs, registry |
 | Local device | Finder WebDAV mount, macOS Keychain, later maybe launch agent patterns | helper app, mount profile handling, auto-mount UX |
 | Cloud/web layer | Nextcloud server, Nextcloud shell app, Nextcloud share/file UI, Nextcloud mobile references | betterNAS integration layer, mapping between product model and Nextcloud, later branded UI |
 
@@ -72,10 +72,11 @@ The NAS node should be boring and reproducible.
 ## 2. Control plane
 
 Start from:
-- the current `exapps/control-plane` scaffold
-- TypeScript
-- Postgres
-- Redis
+- Go
+- standard library routing first
+- Postgres via `pgx` and `sqlc`
+- Redis via `go-redis`
+- OpenAPI-driven contracts
 - standalone API mindset
 
 Do not start by writing:
@@ -151,7 +152,7 @@ This is high leverage, but should not block Phase A.
 - Nix module patterns
 
 ### Control plane
-- current TypeScript repo scaffold
+- Go API service scaffold
 - Postgres
 - Redis
 
@@ -193,7 +194,7 @@ This is high leverage, but should not block Phase A.
 | Part | First scaffold |
 |---|---|
 | NAS node | Nix flake/module + WebDAV server service config |
-| Control plane | current TypeScript control-plane service scaffold |
+| Control plane | Go service + OpenAPI contract + Postgres/Redis adapters later |
 | Local device | documented Finder mount flow, then lightweight helper app |
 | Cloud/web layer | current Nextcloud scaffold and shell app |
 

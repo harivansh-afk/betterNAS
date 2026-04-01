@@ -1,0 +1,12 @@
+{
+  "name": "@betternas/control-plane",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "CGO_ENABLED=0 go run ./cmd/control-plane",
+    "build": "mkdir -p dist && CGO_ENABLED=0 go build -o dist/control-plane ./cmd/control-plane",
+    "lint": "CGO_ENABLED=0 go vet ./...",
+    "check-types": "CGO_ENABLED=0 go test ./...",
+    "test": "CGO_ENABLED=0 go test ./..."
+  }
+}

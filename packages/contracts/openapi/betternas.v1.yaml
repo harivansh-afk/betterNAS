@@ -1,0 +1,307 @@
+openapi: 3.1.0
+info:
+  title: betterNAS Foundation API
+  version: 0.1.0
+  summary: Foundation contract for node registration, export metadata, and profile issuance.
+servers:
+  - url: http://localhost:8081
+paths:
+  /health:
+    get:
+      operationId: getControlPlaneHealth
+      responses:
+        "200":
+          description: Control-plane health
+  /version:
+    get:
+      operationId: getControlPlaneVersion
+      responses:
+        "200":
+          description: Control-plane version
+  /api/v1/nodes/register:
+    post:
+      operationId: registerNode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NodeRegistrationRequest"
+      responses:
+        "200":
+          description: Registered node
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NasNode"
+  /api/v1/nodes/{nodeId}/heartbeat:
+    post:
+      operationId: recordNodeHeartbeat
+      parameters:
+        - in: path
+          name: nodeId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NodeHeartbeatRequest"
+      responses:
+        "204":
+          description: Heartbeat accepted
+  /api/v1/exports:
+    get:
+      operationId: listExports
+      responses:
+        "200":
+          description: Export list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StorageExport"
+  /api/v1/mount-profiles/issue:
+    post:
+      operationId: issueMountProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MountProfileRequest"
+      responses:
+        "200":
+          description: Mount profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MountProfile"
+  /api/v1/cloud-profiles/issue:
+    post:
+      operationId: issueCloudProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CloudProfileRequest"
+      responses:
+        "200":
+          description: Cloud profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CloudProfile"
+components:
+  schemas:
+    NasNode:
+      type: object
+      required:
+        - id
+        - machineId
+        - displayName
+        - agentVersion
+        - status
+        - lastSeenAt
+        - directAddress
+        - relayAddress
+      properties:
+        id:
+          type: string
+        machineId:
+          type: string
+        displayName:
+          type: string
+        agentVersion:
+          type: string
+        status:
+          type: string
+          enum: [online, offline, degraded]
+        lastSeenAt:
+          type: string
+        directAddress:
+          type:
+            - string
+            - "null"
+        relayAddress:
+          type:
+            - string
+            - "null"
+    StorageExport:
+      type: object
+      required:
+        - id
+        - nasNodeId
+        - label
+        - path
+        - protocols
+        - capacityBytes
+        - tags
+      properties:
+        id:
+          type: string
+        nasNodeId:
+          type: string
+        label:
+          type: string
+        path:
+          type: string
+        protocols:
+          type: array
+          items:
+            type: string
+            enum: [webdav]
+        capacityBytes:
+          type:
+            - integer
+            - "null"
+        tags:
+          type: array
+          items:
+            type: string
+    MountProfile:
+      type: object
+      required:
+        - id
+        - exportId
+        - protocol
+        - displayName
+        - mountUrl
+        - readonly
+        - credentialMode
+      properties:
+        id:
+          type: string
+        exportId:
+          type: string
+        protocol:
+          type: string
+          enum: [webdav]
+        displayName:
+          type: string
+        mountUrl:
+          type: string
+        readonly:
+          type: boolean
+        credentialMode:
+          type: string
+          enum: [session-token, app-password]
+    CloudProfile:
+      type: object
+      required:
+        - id
+        - exportId
+        - provider
+        - baseUrl
+        - path
+      properties:
+        id:
+          type: string
+        exportId:
+          type: string
+        provider:
+          type: string
+          enum: [nextcloud]
+        baseUrl:
+          type: string
+        path:
+          type: string
+    StorageExportInput:
+      type: object
+      required:
+        - label
+        - path
+        - protocols
+        - capacityBytes
+        - tags
+      properties:
+        label:
+          type: string
+        path:
+          type: string
+        protocols:
+          type: array
+          items:
+            type: string
+            enum: [webdav]
+        capacityBytes:
+          type:
+            - integer
+            - "null"
+        tags:
+          type: array
+          items:
+            type: string
+    NodeRegistrationRequest:
+      type: object
+      required:
+        - machineId
+        - displayName
+        - agentVersion
+        - directAddress
+        - relayAddress
+        - exports
+      properties:
+        machineId:
+          type: string
+        displayName:
+          type: string
+        agentVersion:
+          type: string
+        directAddress:
+          type:
+            - string
+            - "null"
+        relayAddress:
+          type:
+            - string
+            - "null"
+        exports:
+          type: array
+          items:
+            $ref: "#/components/schemas/StorageExportInput"
+    NodeHeartbeatRequest:
+      type: object
+      required:
+        - nodeId
+        - status
+        - lastSeenAt
+      properties:
+        nodeId:
+          type: string
+        status:
+          type: string
+          enum: [online, offline, degraded]
+        lastSeenAt:
+          type: string
+    MountProfileRequest:
+      type: object
+      required:
+        - userId
+        - deviceId
+        - exportId
+      properties:
+        userId:
+          type: string
+        deviceId:
+          type: string
+        exportId:
+          type: string
+    CloudProfileRequest:
+      type: object
+      required:
+        - userId
+        - exportId
+        - provider
+      properties:
+        userId:
+          type: string
+        exportId:
+          type: string
+        provider:
+          type: string
+          enum: [nextcloud]

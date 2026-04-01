@@ -26,8 +26,8 @@ services:
 
   control-plane:
     build:
-      context: ..
-      dockerfile: exapps/control-plane/Dockerfile
+      context: ../..
+      dockerfile: apps/control-plane/Dockerfile
     environment:
       PORT: 3000
       BETTERNAS_VERSION: local-dev

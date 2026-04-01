@@ -12,6 +12,7 @@ Use it to keep the four product parts aligned:
 
 ## What belongs here
 
+- OpenAPI source documents
 - shared TypeScript types
 - route constants
 - JSON schemas for payloads we want to validate outside TypeScript
@@ -28,6 +29,8 @@ Use it to keep the four product parts aligned:
   - current runtime scaffold for health and version
 - [`src/foundation.ts`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts/src/foundation.ts)
   - first product-level entities and route constants for node, mount, and cloud flows
+- [`openapi/`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts/openapi)
+  - language-neutral source documents for future SDK generation
 - [`schemas/`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts/schemas)
   - JSON schema mirrors for the first shared entities
 
