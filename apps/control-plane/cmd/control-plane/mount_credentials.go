@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -10,6 +11,15 @@ import (
 )
 
 const mountCredentialModeBasicAuth = "basic-auth"
+
+// mountCredentialUsernameTokenBytes controls the random token size in mount
+// credential usernames (e.g. "mount-<token>"). The username is also embedded
+// inside the signed password payload, so longer tokens produce longer
+// passwords. macOS WebDAVFS truncates Basic Auth passwords at 255 bytes,
+// which corrupts the HMAC signature and causes auth failures. 24 bytes
+// (32 base64url chars) keeps the total password under 250 characters with
+// margin for longer node IDs and mount paths.
+const mountCredentialUsernameTokenBytes = 24
 
 type signedMountCredentialClaims struct {
 	Version   int    `json:"v"`
@@ -26,7 +36,7 @@ func issueMountCredential(secret string, nodeID string, mountPath string, readon
 		return "", mountCredential{}, err
 	}
 
-	usernameToken, err := newOpaqueToken()
+	usernameToken, err := newMountCredentialUsernameToken()
 	if err != nil {
 		return "", mountCredential{}, err
 	}
@@ -51,6 +61,14 @@ func issueMountCredential(secret string, nodeID string, mountPath string, readon
 		Password:  password,
 		ExpiresAt: claims.ExpiresAt,
 	}, nil
+}
+
+func newMountCredentialUsernameToken() (string, error) {
+	raw := make([]byte, mountCredentialUsernameTokenBytes)
+	if _, err := rand.Read(raw); err != nil {
+		return "", fmt.Errorf("generate mount credential username token: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(raw), nil
 }
 
 func signMountCredentialClaims(secret string, claims signedMountCredentialClaims) (string, error) {
