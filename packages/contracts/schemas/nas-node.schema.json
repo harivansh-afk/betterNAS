@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://betternas.local/schemas/nas-node.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "machineId",
+    "displayName",
+    "agentVersion",
+    "status",
+    "lastSeenAt",
+    "directAddress",
+    "relayAddress"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "machineId": {
+      "type": "string"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "agentVersion": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "online",
+        "offline",
+        "degraded"
+      ]
+    },
+    "lastSeenAt": {
+      "type": "string"
+    },
+    "directAddress": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "relayAddress": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

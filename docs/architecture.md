@@ -1,54 +1,160 @@
-# betterNAS Architecture Boundary
+# betterNAS Architecture Contract
 
-## Core Decision
+This file is the canonical contract for the repository.
 
-betterNAS treats Nextcloud as an upstream backend, not as the place where betterNAS product logic should accumulate.
+If the planning docs, scaffold code, or future tasks disagree, this file and
+[`packages/contracts`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts)
+win.
 
-That leads to three explicit boundaries:
+## The single first task
 
-1. `apps/betternascontrolplane/` is a thin shell inside Nextcloud.
-2. `exapps/control-plane/` owns betterNAS business logic and internal APIs.
-3. `packages/contracts/` defines the interface between the shell app and the control plane.
+Before splitting work across agents, do one foundation task:
 
-## Why This Boundary Exists
+- scaffold the four product parts
+- lock the shared contracts
+- define one end-to-end verification loop
+- enforce clear ownership boundaries
 
-Forking `nextcloud/server` would force betterNAS to own upstream patching and compatibility work too early. Pushing betterNAS logic into a traditional Nextcloud app would make the product harder to evolve outside the PHP monolith. The scaffold in this repository is designed to avoid both traps.
+That first task should leave the repo in a state where later work can be
+parallelized without interface drift.
 
-## Responsibilities
+## The four parts
 
-### Nextcloud shell app
+```text
+                         betterNAS canonical contract
 
-The shell app is responsible for:
-- navigation entries
-- branded entry pages inside Nextcloud
-- admin-facing integration surfaces
-- adapter calls into the betterNAS control plane
+                           [2] control plane
+                  +-----------------------------------+
+                  | system of record                  |
+                  | users / devices / nodes / grants  |
+                  | mount profiles / cloud profiles   |
+                  +---------+---------------+---------+
+                            |               |
+             control/API    |               | cloud adapter
+                            v               v
+                  [1] NAS node          [4] cloud / web layer
+             +-------------------+      +----------------------+
+             | WebDAV + node     |      | Nextcloud adapter    |
+             | real file bytes   |      | browser / mobile     |
+             +---------+---------+      +----------+-----------+
+                       |                           ^
+                       | mount profile             |
+                       v                           |
+                   [3] local device --------------+
+             +----------------------+
+             | Finder mount/helper  |
+             | native user entry    |
+             +----------------------+
+```
 
-The shell app is not responsible for:
-- storage policy rules
-- orchestration logic
-- betterNAS-native RBAC decisions
-- product workflows that may later be reused by desktop, iOS, or standalone web clients
+## Non-negotiable rules
 
-### Control-plane service
+1. The control plane is the system of record.
+2. File bytes should flow as directly as possible between the NAS node and the
+   local device.
+3. The control plane should issue policy, grants, and profiles. It should not
+   become the default file proxy.
+4. The NAS node should serve WebDAV directly whenever possible.
+5. The local device consumes mount profiles. It does not hardcode infra details.
+6. The cloud/web layer is optional and secondary. Nextcloud is an adapter, not
+   the product center.
 
-The control plane is responsible for:
-- domain logic
-- policy decisions
-- internal APIs consumed by betterNAS surfaces
-- Nextcloud integration adapters kept at the service boundary
+## Canonical sources of truth
 
-### Shared contracts
+Use these in this order:
 
-Contracts live in `packages/contracts/` so request and response shapes do not get duplicated between PHP and TypeScript codebases.
+1. [`docs/architecture.md`](/home/rathi/Documents/GitHub/betterNAS/docs/architecture.md)
+   for boundaries, ownership, and delivery rules
+2. [`packages/contracts`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts)
+   for machine-readable types, schemas, and route constants
+3. the part docs for local detail:
+   - [`docs/01-nas-node.md`](/home/rathi/Documents/GitHub/betterNAS/docs/01-nas-node.md)
+   - [`docs/02-control-plane.md`](/home/rathi/Documents/GitHub/betterNAS/docs/02-control-plane.md)
+   - [`docs/03-local-device.md`](/home/rathi/Documents/GitHub/betterNAS/docs/03-local-device.md)
+   - [`docs/04-cloud-web-layer.md`](/home/rathi/Documents/GitHub/betterNAS/docs/04-cloud-web-layer.md)
+   - [`docs/05-build-plan.md`](/home/rathi/Documents/GitHub/betterNAS/docs/05-build-plan.md)
 
-## Local Runtime
+## The contract surface we need first
 
-The local development stack uses Docker Compose so developers can bring up:
-- Nextcloud
-- PostgreSQL
-- Redis
-- the betterNAS control-plane service
+The first shared contract set should cover only the seams that let all four
+parts exist at once.
 
-The Nextcloud shell app is mounted as a custom app and enabled through `./scripts/dev-up`.
+### NAS node -> control plane
 
+- node registration
+- node heartbeat
+- export inventory
+
+### Local device -> control plane
+
+- list allowed exports
+- issue mount profile
+
+### Cloud/web layer -> control plane
+
+- issue cloud profile
+- read export metadata
+
+### Control plane internal
+
+- health
+- version
+- the first domain entities:
+  - `NasNode`
+  - `StorageExport`
+  - `AccessGrant`
+  - `MountProfile`
+  - `CloudProfile`
+
+## Parallel work boundaries
+
+Each area gets an owner and a narrow write surface.
+
+| Part | Owns | May read | Must not own |
+|---|---|---|---|
+| NAS node | node runtime, export reporting, WebDAV config | contracts, control-plane docs | product policy |
+| Control plane | domain model, grants, profile issuance, registry | everything | direct file serving by default |
+| Local device | mount UX, helper flows, credential handling | contracts, control-plane docs | access policy |
+| Cloud/web layer | Nextcloud adapter, browser/mobile integration | contracts, control-plane docs | source of truth |
+
+The only shared write surface across teams should be:
+
+- [`packages/contracts`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts)
+- this file when the architecture contract changes
+
+## Verification loop
+
+This is the first loop every scaffold and agent should target.
+
+```text
+[1] mock or real NAS node exposes a WebDAV export
+-> [2] control plane registers the node and export
+-> [3] local device asks for a mount profile
+-> [3] local device receives a WebDAV mount URL
+-> user can mount the export in Finder
+-> [4] optional cloud/web layer can expose the same export in cloud mode
+```
+
+If a task does not help one of those steps become real, it is probably too
+early.
+
+## Definition of done for the foundation scaffold
+
+The initial scaffold is complete when:
+
+- all four parts have a documented entry point
+- the control plane can represent nodes, exports, grants, and profiles
+- the contracts package exports the first shared shapes and schemas
+- local verification can prove the mount-profile loop end to end
+- future agents can work inside one part without inventing new interfaces
+
+## Rules for future tasks and agents
+
+1. No part may invent private request or response shapes for shared flows.
+2. Contract changes must update
+   [`packages/contracts`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts)
+   first.
+3. Architecture changes must update this file in the same change.
+4. Additive contract changes are preferred over breaking ones.
+5. New tasks should target one part at a time unless they are explicitly
+   contract tasks.

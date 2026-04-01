@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://betternas.local/schemas/mount-profile.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "exportId",
+    "protocol",
+    "displayName",
+    "mountUrl",
+    "readonly",
+    "credentialMode"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "exportId": {
+      "type": "string"
+    },
+    "protocol": {
+      "const": "webdav"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "mountUrl": {
+      "type": "string"
+    },
+    "readonly": {
+      "type": "boolean"
+    },
+    "credentialMode": {
+      "enum": [
+        "session-token",
+        "app-password"
+      ]
+    }
+  }
+}

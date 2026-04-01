@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://betternas.local/schemas/storage-export.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "nasNodeId",
+    "label",
+    "path",
+    "protocols",
+    "capacityBytes",
+    "tags"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "nasNodeId": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string"
+    },
+    "path": {
+      "type": "string"
+    },
+    "protocols": {
+      "type": "array",
+      "items": {
+        "const": "webdav"
+      }
+    },
+    "capacityBytes": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
