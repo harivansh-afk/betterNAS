@@ -13,7 +13,8 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: "betterNAS",
-  description: "Contract-first monorepo for NAS mounts and optional cloud access",
+  description:
+    "Contract-first monorepo for NAS mounts and optional cloud access",
 };
 
 export default function RootLayout({

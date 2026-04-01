@@ -3,13 +3,7 @@
   "$id": "https://betternas.local/schemas/control-plane-health.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "service",
-    "status",
-    "timestamp",
-    "uptimeSeconds",
-    "nextcloud"
-  ],
+  "required": ["service", "status", "timestamp", "uptimeSeconds", "nextcloud"],
   "properties": {
     "service": {
       "const": "control-plane"
@@ -26,11 +20,7 @@
     "nextcloud": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "configured",
-        "baseUrl",
-        "provider"
-      ],
+      "required": ["configured", "baseUrl", "provider"],
       "properties": {
         "configured": {
           "type": "boolean"
@@ -45,4 +35,3 @@
     }
   }
 }
-

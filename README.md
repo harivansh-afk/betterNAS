@@ -30,8 +30,15 @@ Read these in order:
 - `apps/node-agent`: Go NAS runtime / WebDAV node
 - `apps/nextcloud-app`: optional Nextcloud adapter
 - `packages/contracts`: canonical shared contracts
-- `packages/sdk-ts`: TypeScript SDK surface for the web app
 - `packages/ui`: shared React UI
 - `infra/docker`: local Docker runtime
 
 The root planning and delegation guide lives in [skeleton.md](/home/rathi/Documents/GitHub/betterNAS/skeleton.md).
+
+## Verify
+
+Run the repo acceptance loop with:
+
+```bash
+pnpm verify
+```

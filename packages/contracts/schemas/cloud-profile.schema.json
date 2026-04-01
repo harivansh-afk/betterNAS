@@ -3,13 +3,7 @@
   "$id": "https://betternas.local/schemas/cloud-profile.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "id",
-    "exportId",
-    "provider",
-    "baseUrl",
-    "path"
-  ],
+  "required": ["id", "exportId", "provider", "baseUrl", "path"],
   "properties": {
     "id": {
       "type": "string"

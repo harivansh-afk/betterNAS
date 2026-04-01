@@ -2,7 +2,11 @@
   min-height: 100svh;
   padding: 48px 24px 80px;
   background:
-    radial-gradient(circle at top left, rgba(91, 186, 166, 0.18), transparent 28%),
+    radial-gradient(
+      circle at top left,
+      rgba(91, 186, 166, 0.18),
+      transparent 28%
+    ),
     linear-gradient(180deg, #f5fbfa 0%, #edf5f3 100%);
   color: #10212d;
 }

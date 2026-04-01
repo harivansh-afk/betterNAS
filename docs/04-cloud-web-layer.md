@@ -7,6 +7,7 @@ This document describes the optional browser, mobile, and cloud-drive style acce
 The cloud/web layer is the part of betterNAS that makes storage accessible beyond local mounts.
 
 This is where we can reuse Nextcloud heavily for:
+
 - browser file UI
 - uploads and downloads
 - sharing links

@@ -4,10 +4,13 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "guardrails": "node ./scripts/check-boundaries.mjs",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "format": "prettier --ignore-unknown --write . && turbo run format",
+    "format:check": "prettier --ignore-unknown --check . && turbo run format:check",
     "check-types": "turbo run check-types",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "verify": "pnpm run guardrails && pnpm run format:check && turbo run lint check-types test build"
   },
   "devDependencies": {
     "prettier": "^3.7.4",
@@ -17,9 +20,5 @@
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "npm@10.9.7",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ]
+  "packageManager": "pnpm@10.33.0"
 }

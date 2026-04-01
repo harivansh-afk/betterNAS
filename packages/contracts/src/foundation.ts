@@ -3,7 +3,7 @@ export const FOUNDATION_API_ROUTES = {
   nodeHeartbeat: "/api/v1/nodes/:nodeId/heartbeat",
   listExports: "/api/v1/exports",
   issueMountProfile: "/api/v1/mount-profiles/issue",
-  issueCloudProfile: "/api/v1/cloud-profiles/issue"
+  issueCloudProfile: "/api/v1/cloud-profiles/issue",
 } as const;
 
 export type NasNodeStatus = "online" | "offline" | "degraded";

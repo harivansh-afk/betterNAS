@@ -32,10 +32,7 @@
       "type": "boolean"
     },
     "credentialMode": {
-      "enum": [
-        "session-token",
-        "app-password"
-      ]
+      "enum": ["session-token", "app-password"]
     }
   }
 }

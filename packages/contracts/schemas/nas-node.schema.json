@@ -27,26 +27,16 @@
       "type": "string"
     },
     "status": {
-      "enum": [
-        "online",
-        "offline",
-        "degraded"
-      ]
+      "enum": ["online", "offline", "degraded"]
     },
     "lastSeenAt": {
       "type": "string"
     },
     "directAddress": {
-      "type": [
-        "string",
-        "null"
-      ]
+      "type": ["string", "null"]
     },
     "relayAddress": {
-      "type": [
-        "string",
-        "null"
-      ]
+      "type": ["string", "null"]
     }
   }
 }
