@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
 <info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
-	<id>ainascontrolplane</id>
+	<id>betternascontrolplane</id>
 	<name>aiNAS Control Plane</name>
 	<summary>Thin aiNAS shell app for Nextcloud integration</summary>
 	<description>Provides aiNAS-branded entry points inside Nextcloud while delegating business logic to the aiNAS control plane.</description>
 	<version>0.1.0</version>
 	<licence>AGPL-3.0-or-later</licence>
-	<author homepage="https://ainas.local">aiNAS</author>
+	<author homepage="https://betternas.local">aiNAS</author>
 	<namespace>AinasControlplane</namespace>
 	<category>integration</category>
 	<dependencies>
@@ -15,9 +15,9 @@
 	</dependencies>
 	<navigations>
 		<navigation>
-			<id>ainascontrolplane</id>
+			<id>betternascontrolplane</id>
 			<name>aiNAS</name>
-			<route>ainascontrolplane.page.index</route>
+			<route>betternascontrolplane.page.index</route>
 			<icon>app.svg</icon>
 			<type>link</type>
 		</navigation>

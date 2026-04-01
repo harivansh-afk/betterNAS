@@ -3,7 +3,7 @@ import {
   CONTROL_PLANE_ROUTES,
   type ControlPlaneHealthResponse,
   type ControlPlaneVersionResponse
-} from "@ainas/contracts";
+} from "@betternas/contracts";
 
 import type { ControlPlaneConfig } from "./config.js";
 import { NextcloudBackendAdapter } from "./adapters/nextcloud-backend.js";

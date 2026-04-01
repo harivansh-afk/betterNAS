@@ -1,4 +1,4 @@
-import type { NextcloudBackendStatus } from "@ainas/contracts";
+import type { NextcloudBackendStatus } from "@betternas/contracts";
 
 export class NextcloudBackendAdapter {
   constructor(private readonly baseUrl: string) {}

@@ -1,5 +1,5 @@
 {
-  "name": "ainas/ainascontrolplane",
+  "name": "betternas/betternascontrolplane",
   "description": "aiNAS Nextcloud shell app",
   "license": "AGPL-3.0-or-later",
   "autoload": {

@@ -1,5 +1,5 @@
 {
-  "name": "ainas",
+  "name": "betternas",
   "private": true,
   "packageManager": "npm@10.9.7",
   "workspaces": [
@@ -7,9 +7,9 @@
     "exapps/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace @ainas/contracts && npm run build --workspace @ainas/control-plane",
-    "typecheck": "npm run typecheck --workspace @ainas/contracts && npm run typecheck --workspace @ainas/control-plane",
-    "dev:control-plane": "npm run dev --workspace @ainas/control-plane"
+    "build": "npm run build --workspace @betternas/contracts && npm run build --workspace @betternas/control-plane",
+    "typecheck": "npm run typecheck --workspace @betternas/contracts && npm run typecheck --workspace @betternas/control-plane",
+    "dev:control-plane": "npm run dev --workspace @betternas/control-plane"
   }
 }
 

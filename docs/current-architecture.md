@@ -6,7 +6,7 @@ aiNAS treats Nextcloud as an upstream backend, not as the place where aiNAS prod
 
 That leads to three explicit boundaries:
 
-1. `apps/ainas-controlplane/` is a thin shell inside Nextcloud.
+1. `apps/betternas-controlplane/` is a thin shell inside Nextcloud.
 2. `exapps/control-plane/` owns aiNAS business logic and internal APIs.
 3. `packages/contracts/` defines the interface between the shell app and the control plane.
 

@@ -7,7 +7,7 @@
 
 ## 2. Nextcloud shell app scaffold
 
-- [x] 2.1 Generate the aiNAS Nextcloud app scaffold into `apps/ainas-controlplane/`
+- [x] 2.1 Generate the aiNAS Nextcloud app scaffold into `apps/betternas-controlplane/`
 - [x] 2.2 Configure the shell app with aiNAS branding, navigation entry points, and basic settings surface
 - [x] 2.3 Add an adapter layer in the shell app for calling aiNAS-owned service endpoints
 - [x] 2.4 Verify the shell app installs and loads in the local Nextcloud runtime

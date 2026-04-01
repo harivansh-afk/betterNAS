@@ -65,7 +65,7 @@ The initial scaffold will create clear top-level directories for infrastructure,
 
 Initial structure:
 - `docker/`: local orchestration and container assets
-- `apps/ainas-controlplane/`: generated Nextcloud shell app
+- `apps/betternas-controlplane/`: generated Nextcloud shell app
 - `exapps/control-plane/`: aiNAS control-plane service, packaged for Nextcloud-compatible dev flows
 - `packages/contracts/`: shared schemas and API contracts
 - `docs/`: architecture and product model notes
@@ -105,7 +105,7 @@ Alternatives considered:
 
 1. Add the proposal artifacts that establish the architecture and scaffold requirements.
 2. Create the top-level repository layout and a Docker Compose development environment.
-3. Generate the Nextcloud shell app into `apps/ainas-controlplane/`.
+3. Generate the Nextcloud shell app into `apps/betternas-controlplane/`.
 4. Scaffold the control-plane service and shared contracts package.
 5. Verify local startup, service discovery, and basic health paths before implementing product features.
 
