@@ -3,3 +3,6 @@ dist/
 .DS_Store
 npm-debug.log*
 .codex/
+.turbo/
+coverage/
+apps/web/.next/

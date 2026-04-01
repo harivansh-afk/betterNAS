@@ -74,6 +74,19 @@ Use these in this order:
    - [`docs/04-cloud-web-layer.md`](/home/rathi/Documents/GitHub/betterNAS/docs/04-cloud-web-layer.md)
    - [`docs/05-build-plan.md`](/home/rathi/Documents/GitHub/betterNAS/docs/05-build-plan.md)
 
+## Repo lanes
+
+The monorepo is split into these primary implementation lanes:
+
+- [`apps/node-agent`](/home/rathi/Documents/GitHub/betterNAS/apps/node-agent)
+- [`apps/control-plane`](/home/rathi/Documents/GitHub/betterNAS/apps/control-plane)
+- [`apps/web`](/home/rathi/Documents/GitHub/betterNAS/apps/web)
+- [`apps/nextcloud-app`](/home/rathi/Documents/GitHub/betterNAS/apps/nextcloud-app)
+- [`packages/contracts`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts)
+
+Every parallel task should primarily stay inside one of those lanes unless it is
+an explicit contract task.
+
 ## The contract surface we need first
 
 The first shared contract set should cover only the seams that let all four

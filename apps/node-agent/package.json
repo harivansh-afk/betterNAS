@@ -1,0 +1,12 @@
+{
+  "name": "@betternas/node-agent",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "CGO_ENABLED=0 go run ./cmd/node-agent",
+    "build": "mkdir -p dist && CGO_ENABLED=0 go build -o dist/node-agent ./cmd/node-agent",
+    "lint": "CGO_ENABLED=0 go vet ./...",
+    "check-types": "CGO_ENABLED=0 go test ./...",
+    "test": "CGO_ENABLED=0 go test ./..."
+  }
+}

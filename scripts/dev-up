@@ -3,8 +3,8 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-compose_file="$repo_root/docker/compose.dev.yml"
-app_source_dir="$repo_root/apps/betternascontrolplane"
+compose_file="$repo_root/infra/docker/compose.dev.yml"
+app_source_dir="$repo_root/apps/nextcloud-app"
 
 nextcloud_occ() {
   docker compose -f "$compose_file" exec -T --user www-data --workdir /var/www/html nextcloud php occ "$@"
