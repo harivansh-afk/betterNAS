@@ -35,7 +35,8 @@ Control plane: http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}
 Node agent: http://localhost:${BETTERNAS_NODE_AGENT_PORT}
 Nextcloud: ${NEXTCLOUD_BASE_URL}
 Export path: ${BETTERNAS_EXPORT_PATH}
-Mount URL: ${BETTERNAS_EXAMPLE_MOUNT_URL}
+Example mount URL: ${BETTERNAS_EXAMPLE_MOUNT_URL}
+Mount credentials are issued by the control plane.
 
 Next:
   pnpm verify

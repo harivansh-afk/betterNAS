@@ -34,6 +34,16 @@ func newAppFromEnv(startedAt time.Time) (*app, error) {
 		return nil, err
 	}
 
+	davAuthSecret, err := requiredEnv("BETTERNAS_DAV_AUTH_SECRET")
+	if err != nil {
+		return nil, err
+	}
+
+	davCredentialTTL, err := parseRequiredDurationEnv("BETTERNAS_DAV_CREDENTIAL_TTL")
+	if err != nil {
+		return nil, err
+	}
+
 	return newApp(
 		appConfig{
 			version:            env("BETTERNAS_VERSION", "0.1.0-dev"),
@@ -41,6 +51,8 @@ func newAppFromEnv(startedAt time.Time) (*app, error) {
 			statePath:          env("BETTERNAS_CONTROL_PLANE_STATE_PATH", ".state/control-plane/state.json"),
 			clientToken:        clientToken,
 			nodeBootstrapToken: nodeBootstrapToken,
+			davAuthSecret:      davAuthSecret,
+			davCredentialTTL:   davCredentialTTL,
 		},
 		startedAt,
 	)

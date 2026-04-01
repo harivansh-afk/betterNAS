@@ -66,6 +66,34 @@ paths:
           description: Heartbeat accepted
         "401":
           description: Unauthorized
+  /api/v1/nodes/{nodeId}/exports:
+    put:
+      operationId: syncNodeExports
+      security:
+        - NodeToken: []
+      parameters:
+        - in: path
+          name: nodeId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NodeExportsRequest"
+      responses:
+        "200":
+          description: Export inventory accepted
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StorageExport"
+        "401":
+          description: Unauthorized
   /api/v1/exports:
     get:
       operationId: listExports
@@ -213,7 +241,7 @@ components:
         - displayName
         - mountUrl
         - readonly
-        - credentialMode
+        - credential
       properties:
         id:
           type: string
@@ -228,9 +256,25 @@ components:
           type: string
         readonly:
           type: boolean
-        credentialMode:
+        credential:
+          $ref: "#/components/schemas/MountCredential"
+    MountCredential:
+      type: object
+      required:
+        - mode
+        - username
+        - password
+        - expiresAt
+      properties:
+        mode:
           type: string
-          enum: [session-token, app-password]
+          enum: [basic-auth]
+        username:
+          type: string
+        password:
+          type: string
+        expiresAt:
+          type: string
     CloudProfile:
       type: object
       required:
@@ -287,7 +331,6 @@ components:
         - agentVersion
         - directAddress
         - relayAddress
-        - exports
       properties:
         machineId:
           type: string
@@ -303,6 +346,11 @@ components:
           type:
             - string
             - "null"
+    NodeExportsRequest:
+      type: object
+      required:
+        - exports
+      properties:
         exports:
           type: array
           items:
@@ -324,14 +372,8 @@ components:
     MountProfileRequest:
       type: object
       required:
-        - userId
-        - deviceId
         - exportId
       properties:
-        userId:
-          type: string
-        deviceId:
-          type: string
         exportId:
           type: string
     CloudProfileRequest:

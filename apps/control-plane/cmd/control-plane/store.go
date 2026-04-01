@@ -197,14 +197,43 @@ func registerNodeInState(state *storeState, request nodeRegistrationRequest, reg
 		RelayAddress:  copyStringPointer(request.RelayAddress),
 	}
 
+	state.NodesByID[nodeID] = node
+	return nodeRegistrationResult{
+		Node:            node,
+		IssuedNodeToken: issuedNodeToken,
+	}, nil
+}
+
+func (s *memoryStore) upsertExports(nodeID string, request nodeExportsRequest) ([]storageExport, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	nextState := cloneStoreState(s.state)
+	exports, err := upsertExportsInState(&nextState, nodeID, request.Exports)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.persistLocked(nextState); err != nil {
+		return nil, err
+	}
+
+	s.state = nextState
+	return exports, nil
+}
+
+func upsertExportsInState(state *storeState, nodeID string, exports []storageExportInput) ([]storageExport, error) {
+	if _, ok := state.NodesByID[nodeID]; !ok {
+		return nil, errNodeNotFound
+	}
+
 	exportIDsByPath, ok := state.ExportIDsByNodePath[nodeID]
 	if !ok {
 		exportIDsByPath = make(map[string]string)
 		state.ExportIDsByNodePath[nodeID] = exportIDsByPath
 	}
 
-	keepPaths := make(map[string]struct{}, len(request.Exports))
-	for _, export := range request.Exports {
+	keepPaths := make(map[string]struct{}, len(exports))
+	for _, export := range exports {
 		exportID, ok := exportIDsByPath[export.Path]
 		if !ok {
 			exportID = nextExportID(state)
@@ -233,11 +262,19 @@ func registerNodeInState(state *storeState, request nodeRegistrationRequest, reg
 		delete(state.ExportsByID, exportID)
 	}
 
-	state.NodesByID[nodeID] = node
-	return nodeRegistrationResult{
-		Node:            node,
-		IssuedNodeToken: issuedNodeToken,
-	}, nil
+	nodeExports := make([]storageExport, 0, len(exportIDsByPath))
+	for exportPath, exportID := range exportIDsByPath {
+		if _, ok := keepPaths[exportPath]; !ok {
+			continue
+		}
+		nodeExports = append(nodeExports, copyStorageExport(state.ExportsByID[exportID]))
+	}
+
+	sort.Slice(nodeExports, func(i, j int) bool {
+		return nodeExports[i].ID < nodeExports[j].ID
+	})
+
+	return nodeExports, nil
 }
 
 func (s *memoryStore) recordHeartbeat(nodeID string, request nodeHeartbeatRequest) error {

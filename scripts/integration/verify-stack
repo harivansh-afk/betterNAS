@@ -6,87 +6,64 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/runtime-env.sh"
 
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/wait-stack"
-"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/verify-webdav"
 
 control_health="$(curl -fsS "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/health")"
-verify_run_id="$(date +%s)-$$"
-node_machine_id="${BETTERNAS_CLONE_NAME}-machine-${verify_run_id}"
-
 echo "$control_health" | jq -e '.service == "control-plane" and .status == "ok"' >/dev/null
 
-register_headers="$(mktemp)"
-register_body="$(mktemp)"
-trap 'rm -f "$register_headers" "$register_body"' EXIT
+export_id=""
+for _ in {1..30}; do
+  exports_response="$(curl -fsS -H "Authorization: Bearer ${BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN}" "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/exports")"
+  export_id="$({
+    echo "$exports_response" | jq -er \
+      'map(select(.mountPath == "/dav/")) | .[0].id? // empty'
+  } 2>/dev/null || true)"
+  if [[ -n "$export_id" ]]; then
+    break
+  fi
+  sleep 1
+done
 
-curl -fsS \
-  -D "$register_headers" \
-  -o "$register_body" \
-  -X POST \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer ${BETTERNAS_CONTROL_PLANE_NODE_BOOTSTRAP_TOKEN}" \
-  -d @- \
-  "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/nodes/register" <<JSON
-{"machineId":"${node_machine_id}","displayName":"${BETTERNAS_CLONE_NAME} node","agentVersion":"${BETTERNAS_VERSION}","directAddress":"${BETTERNAS_NODE_DIRECT_ADDRESS}","relayAddress":null,"exports":[{"label":"integration","path":"${BETTERNAS_EXPORT_PATH}","mountPath":"/dav/","protocols":["webdav"],"capacityBytes":null,"tags":["integration"]}]}
-JSON
-
-register_response="$(cat "$register_body")"
-echo "$register_response" | jq -e '.status == "online"' >/dev/null
-node_id="$(echo "$register_response" | jq -er '.id')"
-node_token="$(tr -d '\r' < "$register_headers" | awk -F': ' 'tolower($1) == tolower("X-BetterNAS-Node-Token") { print $2 }' | tail -n 1 | tr -d '\n')"
-if [[ -z "$node_token" ]]; then
-  echo "Node registration did not return X-BetterNAS-Node-Token" >&2
+if [[ -z "$export_id" ]]; then
+  echo "Node agent export did not appear in the control plane." >&2
   exit 1
 fi
 
-heartbeat_status="$(curl -sS -o /dev/null -w '%{http_code}' \
-  -X POST \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer ${node_token}" \
-  -d "{\"nodeId\":\"${node_id}\",\"status\":\"online\",\"lastSeenAt\":\"2026-01-01T00:00:00Z\"}" \
-  "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/nodes/${node_id}/heartbeat")"
-if [[ "$heartbeat_status" != "204" ]]; then
-  echo "Heartbeat did not return 204" >&2
-  exit 1
-fi
-
-exports_response="$(curl -fsS -H "Authorization: Bearer ${BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN}" "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/exports")"
-export_id="$(
-  echo "$exports_response" | jq -er \
-    --arg node_id "$node_id" \
-    --arg export_path "$BETTERNAS_EXPORT_PATH" \
-    'map(select(.nasNodeId == $node_id and .path == $export_path)) | .[0].id'
-)"
-
-mount_profile="$(
+mount_profile="$({
   curl -fsS \
     -X POST \
     -H 'Content-Type: application/json' \
     -H "Authorization: Bearer ${BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN}" \
-    -d "{\"userId\":\"integration-user\",\"deviceId\":\"integration-device\",\"exportId\":\"${export_id}\"}" \
+    -d "{\"exportId\":\"${export_id}\"}" \
     "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/mount-profiles/issue"
-)"
-echo "$mount_profile" | jq -e --arg expected "$BETTERNAS_EXAMPLE_MOUNT_URL" '.protocol == "webdav" and .mountUrl == $expected' >/dev/null
+})"
+echo "$mount_profile" | jq -e --arg expected "$BETTERNAS_EXAMPLE_MOUNT_URL" '.protocol == "webdav" and .mountUrl == $expected and .credential.mode == "basic-auth"' >/dev/null
 
-cloud_profile="$(
+BETTERNAS_EXAMPLE_MOUNT_USERNAME="$(echo "$mount_profile" | jq -er '.credential.username')"
+BETTERNAS_EXAMPLE_MOUNT_PASSWORD="$(echo "$mount_profile" | jq -er '.credential.password')"
+export BETTERNAS_EXAMPLE_MOUNT_USERNAME
+export BETTERNAS_EXAMPLE_MOUNT_PASSWORD
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/verify-webdav"
+
+cloud_profile="$({
   curl -fsS \
     -X POST \
     -H 'Content-Type: application/json' \
     -H "Authorization: Bearer ${BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN}" \
     -d "{\"userId\":\"integration-user\",\"exportId\":\"${export_id}\",\"provider\":\"nextcloud\"}" \
     "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/cloud-profiles/issue"
-)"
+})"
 echo "$cloud_profile" | jq -e --arg expected "$NEXTCLOUD_BASE_URL" '.provider == "nextcloud" and .baseUrl == $expected' >/dev/null
 echo "$cloud_profile" | jq -e --arg expected "/apps/betternascontrolplane/exports/${export_id}" '.path == $expected' >/dev/null
 
 nextcloud_status="$(curl -fsS "${NEXTCLOUD_BASE_URL}/status.php")"
 echo "$nextcloud_status" | jq -e '.installed == true' >/dev/null
 
-nextcloud_app_status="$(
+nextcloud_app_status="$({
   curl -fsS \
     -u "${NEXTCLOUD_ADMIN_USER}:${NEXTCLOUD_ADMIN_PASSWORD}" \
     -H 'OCS-APIRequest: true' \
     "${NEXTCLOUD_BASE_URL}/ocs/v2.php/apps/betternascontrolplane/api/status?format=json"
-)"
+})"
 echo "$nextcloud_app_status" | jq -e '.ocs.meta.statuscode == 200' >/dev/null
 
 echo "Stack verified for ${BETTERNAS_CLONE_NAME}."

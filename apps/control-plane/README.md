@@ -8,6 +8,7 @@ It is intentionally small for now:
 - `GET /version`
 - `POST /api/v1/nodes/register`
 - `POST /api/v1/nodes/{nodeId}/heartbeat`
+- `PUT /api/v1/nodes/{nodeId}/exports`
 - `GET /api/v1/exports`
 - `POST /api/v1/mount-profiles/issue`
 - `POST /api/v1/cloud-profiles/issue`
@@ -19,4 +20,7 @@ The request and response shapes must follow the contracts in
 `BETTERNAS_CONTROL_PLANE_NODE_BOOTSTRAP_TOKEN`, client flows use
 `BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN`, and node registration returns an
 `X-BetterNAS-Node-Token` header for subsequent node-scoped register and
-heartbeat calls. Multi-export registrations should also send an explicit `mountPath` per export so mount profiles can stay stable across runtimes.
+heartbeat and export sync calls. Mount profiles now return standard WebDAV
+username and password credentials, and multi-export sync should send an
+explicit `mountPath` per export so mount profiles can stay stable across
+runtimes.
