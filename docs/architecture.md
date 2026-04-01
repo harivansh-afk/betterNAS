@@ -3,7 +3,7 @@
 This file is the canonical contract for the repository.
 
 If the planning docs, scaffold code, or future tasks disagree, this file and
-[`packages/contracts`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts)
+[`packages/contracts`](../packages/contracts)
 win.
 
 ## The single first task
@@ -63,26 +63,26 @@ parallelized without interface drift.
 
 Use these in this order:
 
-1. [`docs/architecture.md`](/home/rathi/Documents/GitHub/betterNAS/docs/architecture.md)
+1. [`docs/architecture.md`](./architecture.md)
    for boundaries, ownership, and delivery rules
-2. [`packages/contracts`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts)
+2. [`packages/contracts`](../packages/contracts)
    for machine-readable types, schemas, and route constants
 3. the part docs for local detail:
-   - [`docs/01-nas-node.md`](/home/rathi/Documents/GitHub/betterNAS/docs/01-nas-node.md)
-   - [`docs/02-control-plane.md`](/home/rathi/Documents/GitHub/betterNAS/docs/02-control-plane.md)
-   - [`docs/03-local-device.md`](/home/rathi/Documents/GitHub/betterNAS/docs/03-local-device.md)
-   - [`docs/04-cloud-web-layer.md`](/home/rathi/Documents/GitHub/betterNAS/docs/04-cloud-web-layer.md)
-   - [`docs/05-build-plan.md`](/home/rathi/Documents/GitHub/betterNAS/docs/05-build-plan.md)
+   - [`docs/01-nas-node.md`](./01-nas-node.md)
+   - [`docs/02-control-plane.md`](./02-control-plane.md)
+   - [`docs/03-local-device.md`](./03-local-device.md)
+   - [`docs/04-cloud-web-layer.md`](./04-cloud-web-layer.md)
+   - [`docs/05-build-plan.md`](./05-build-plan.md)
 
 ## Repo lanes
 
 The monorepo is split into these primary implementation lanes:
 
-- [`apps/node-agent`](/home/rathi/Documents/GitHub/betterNAS/apps/node-agent)
-- [`apps/control-plane`](/home/rathi/Documents/GitHub/betterNAS/apps/control-plane)
-- [`apps/web`](/home/rathi/Documents/GitHub/betterNAS/apps/web)
-- [`apps/nextcloud-app`](/home/rathi/Documents/GitHub/betterNAS/apps/nextcloud-app)
-- [`packages/contracts`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts)
+- [`apps/node-agent`](../apps/node-agent)
+- [`apps/control-plane`](../apps/control-plane)
+- [`apps/web`](../apps/web)
+- [`apps/nextcloud-app`](../apps/nextcloud-app)
+- [`packages/contracts`](../packages/contracts)
 
 Every parallel task should primarily stay inside one of those lanes unless it is
 an explicit contract task.
@@ -132,7 +132,7 @@ Each area gets an owner and a narrow write surface.
 
 The only shared write surface across teams should be:
 
-- [`packages/contracts`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts)
+- [`packages/contracts`](../packages/contracts)
 - this file when the architecture contract changes
 
 ## Verification loop
@@ -165,7 +165,7 @@ The initial scaffold is complete when:
 
 1. No part may invent private request or response shapes for shared flows.
 2. Contract changes must update
-   [`packages/contracts`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts)
+   [`packages/contracts`](../packages/contracts)
    first.
 3. Architecture changes must update this file in the same change.
 4. Additive contract changes are preferred over breaking ones.

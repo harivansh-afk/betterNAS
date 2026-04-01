@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+env_file="$repo_root/.env.agent"
+example_env_file="$repo_root/.env.agent.example"
+
+if [[ ! -f "$env_file" ]]; then
+  cp "$example_env_file" "$env_file"
+fi
+
+# shellcheck disable=SC1091
+source "$repo_root/scripts/lib/runtime-env.sh"
+
+mkdir -p "$BETTERNAS_EXPORT_PATH"
+
+if [[ ! -f "$BETTERNAS_EXPORT_PATH/README.txt" ]]; then
+  cat >"$BETTERNAS_EXPORT_PATH/README.txt" <<EOF
+betterNAS export
+clone=${BETTERNAS_CLONE_NAME}
+mount_url=${BETTERNAS_EXAMPLE_MOUNT_URL}
+EOF
+fi
+
+pnpm install --frozen-lockfile
+go work sync
+
+cat <<EOF
+Agent bootstrap complete for ${BETTERNAS_CLONE_NAME}
+
+Env file: ${env_file}
+Control plane: http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}
+Node agent: http://localhost:${BETTERNAS_NODE_AGENT_PORT}
+Nextcloud: ${NEXTCLOUD_BASE_URL}
+Export path: ${BETTERNAS_EXPORT_PATH}
+Mount URL: ${BETTERNAS_EXAMPLE_MOUNT_URL}
+
+Next:
+  pnpm verify
+  pnpm stack:up
+  pnpm stack:verify
+EOF

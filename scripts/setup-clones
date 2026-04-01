@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+parent_dir="$(cd "$repo_root/.." && pwd)"
+repo_name="$(basename "$repo_root")"
+sync_clone_script="$repo_root/scripts/sync-clone"
+
+declare -A clone_ports=(
+  ["betterNAS-runtime"]="41080 41090 41001"
+  ["betterNAS-control"]="42080 42090 42001"
+  ["betterNAS-node"]="43080 43090 43001"
+)
+clone_names=("betterNAS-runtime" "betterNAS-control" "betterNAS-node")
+
+for clone_name in "${clone_names[@]}"; do
+  clone_dir="$parent_dir/$clone_name"
+
+  "$sync_clone_script" "$clone_dir"
+
+  read -r nextcloud_port node_agent_port control_plane_port <<<"${clone_ports[$clone_name]}"
+
+  cat >"$clone_dir/.env.agent" <<EOF
+BETTERNAS_CLONE_NAME=${clone_name}
+COMPOSE_PROJECT_NAME=${clone_name}
+BETTERNAS_NEXTCLOUD_PORT=${nextcloud_port}
+BETTERNAS_NODE_AGENT_PORT=${node_agent_port}
+BETTERNAS_CONTROL_PLANE_PORT=${control_plane_port}
+BETTERNAS_EXPORT_PATH=.state/${clone_name}/export
+BETTERNAS_VERSION=local-dev
+BETTERNAS_NODE_DIRECT_ADDRESS=http://localhost:${node_agent_port}
+BETTERNAS_EXAMPLE_MOUNT_URL=http://localhost:${node_agent_port}/dav/
+NEXTCLOUD_BASE_URL=http://localhost:${nextcloud_port}
+NEXTCLOUD_ADMIN_USER=admin
+NEXTCLOUD_ADMIN_PASSWORD=admin
+EOF
+done
+
+cat <<EOF
+Clone setup complete under ${parent_dir}
+
+Main repo: ${repo_name}
+Runtime clone: ${parent_dir}/betterNAS-runtime
+Control clone: ${parent_dir}/betterNAS-control
+Node clone: ${parent_dir}/betterNAS-node
+
+Next in each clone:
+  pnpm agent:bootstrap
+  pnpm agent:verify
+EOF

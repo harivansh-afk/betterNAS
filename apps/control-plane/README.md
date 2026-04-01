@@ -12,4 +12,4 @@ It is intentionally small for now:
 - `POST /api/v1/cloud-profiles/issue`
 
 The request and response shapes must follow the contracts in
-[`packages/contracts`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts).
+[`packages/contracts`](../../packages/contracts).

@@ -25,20 +25,20 @@ Use it to keep the four product parts aligned:
 
 ## Current contract layers
 
-- [`src/control-plane.ts`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts/src/control-plane.ts)
+- [`src/control-plane.ts`](./src/control-plane.ts)
   - current runtime scaffold for health and version
-- [`src/foundation.ts`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts/src/foundation.ts)
+- [`src/foundation.ts`](./src/foundation.ts)
   - first product-level entities and route constants for node, mount, and cloud flows
-- [`openapi/`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts/openapi)
+- [`openapi/`](./openapi)
   - language-neutral source documents for future SDK generation
-- [`schemas/`](/home/rathi/Documents/GitHub/betterNAS/packages/contracts/schemas)
+- [`schemas/`](./schemas)
   - JSON schema mirrors for the first shared entities
 
 ## Change rules
 
 1. Shared API shape changes happen here first.
 2. If the boundary changes, also update
-   [`docs/architecture.md`](/home/rathi/Documents/GitHub/betterNAS/docs/architecture.md).
+   [`docs/architecture.md`](../../docs/architecture.md).
 3. Prefer additive changes until all four parts are live.
 4. Do not put Nextcloud-only assumptions into the core contracts unless the
    field is explicitly part of the cloud adapter.
