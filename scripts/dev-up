@@ -4,13 +4,32 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 compose_file="$repo_root/docker/compose.dev.yml"
+app_source_dir="$repo_root/apps/ainas-controlplane"
+
+nextcloud_occ() {
+  docker compose -f "$compose_file" exec -T --user www-data --workdir /var/www/html nextcloud php occ "$@"
+}
+
+nextcloud_is_installed() {
+  nextcloud_occ status --output=json 2>/dev/null | grep -q '"installed":true'
+}
 
 docker compose -f "$compose_file" up -d --build
 
-echo "Waiting for Nextcloud to finish installing..."
+docker compose -f "$compose_file" exec -T --user root nextcloud sh -lc '
+  mkdir -p /var/www/html/custom_apps/ainascontrolplane
+  chown -R www-data:www-data /var/www/html/custom_apps
+'
+
+docker compose -f "$compose_file" cp "$app_source_dir/." nextcloud:/var/www/html/custom_apps/ainascontrolplane
+docker compose -f "$compose_file" exec -T --user root nextcloud sh -lc '
+  chown -R www-data:www-data /var/www/html/custom_apps/ainascontrolplane
+'
+
+echo "Waiting for Nextcloud command interface..."
 ready=0
 for _ in {1..60}; do
-  if docker compose -f "$compose_file" exec -T --user www-data nextcloud php occ status >/dev/null 2>&1; then
+  if nextcloud_occ status --output=json >/dev/null 2>&1; then
     ready=1
     break
   fi
@@ -18,11 +37,30 @@ for _ in {1..60}; do
 done
 
 if [[ "$ready" -ne 1 ]]; then
-  echo "Nextcloud did not become ready in time." >&2
+  echo "Nextcloud command interface did not become ready in time." >&2
   exit 1
 fi
 
-docker compose -f "$compose_file" exec -T --user www-data nextcloud php occ app:enable --force ainascontrolplane >/dev/null
+if ! nextcloud_is_installed; then
+  echo "Nextcloud is not installed yet. Running CLI install..."
+
+  nextcloud_occ maintenance:install \
+    --database pgsql \
+    --database-name nextcloud \
+    --database-host db \
+    --database-user nextcloud \
+    --database-pass nextcloud \
+    --admin-user admin \
+    --admin-pass admin \
+    --data-dir /var/www/html/data
+
+  if ! nextcloud_is_installed; then
+    echo "Nextcloud did not report an installed state after CLI install." >&2
+    exit 1
+  fi
+fi
+
+nextcloud_occ app:enable --force ainascontrolplane >/dev/null
 
 echo "Nextcloud: http://localhost:8080"
 echo "aiNAS control plane: http://localhost:3001"

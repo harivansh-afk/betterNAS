@@ -5,5 +5,10 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 compose_file="$repo_root/docker/compose.dev.yml"
 
-docker compose -f "$compose_file" down --remove-orphans
+args=(down --remove-orphans)
 
+if [[ "${1:-}" == "--volumes" ]]; then
+  args+=(--volumes)
+fi
+
+docker compose -f "$compose_file" "${args[@]}"

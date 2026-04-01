@@ -36,11 +36,17 @@ Stop the local stack:
 ./scripts/dev-down
 ```
 
+Reset the local stack, including Docker volumes:
+
+```bash
+./scripts/dev-down --volumes
+```
+
 Once the stack is up:
 - Nextcloud: `http://localhost:8080`
 - aiNAS control plane: `http://localhost:3001`
 
-The `dev-up` script waits for Nextcloud installation to finish and then enables the `ainascontrolplane` custom app inside the container.
+The `dev-up` script waits for Nextcloud to report a healthy installed state, falls back to the documented `occ maintenance:install` flow if auto-install has not completed yet, and then enables the `ainascontrolplane` custom app inside the container.
 
 ## Architecture
 

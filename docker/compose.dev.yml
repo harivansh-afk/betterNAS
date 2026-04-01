@@ -66,10 +66,10 @@ services:
       - "8080:80"
     volumes:
       - nextcloud-data:/var/www/html
-      - ../apps/ainas-controlplane:/var/www/html/custom_apps/ainascontrolplane
+      - nextcloud-custom-apps:/var/www/html/custom_apps
 
 volumes:
   nextcloud-data:
+  nextcloud-custom-apps:
   postgres-data:
   redis-data:
-
