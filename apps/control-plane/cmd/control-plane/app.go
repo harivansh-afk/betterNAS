@@ -1,8 +1,6 @@
 package main
 
 import (
-	"errors"
-	"strings"
 	"time"
 )
 
@@ -11,10 +9,6 @@ type appConfig struct {
 	nextcloudBaseURL    string
 	statePath           string
 	dbPath              string
-	clientToken         string
-	nodeBootstrapToken  string
-	davAuthSecret       string
-	davCredentialTTL    time.Duration
 	sessionTTL          time.Duration
 	registrationEnabled bool
 	corsOrigin          string
@@ -28,21 +22,6 @@ type app struct {
 }
 
 func newApp(config appConfig, startedAt time.Time) (*app, error) {
-	config.clientToken = strings.TrimSpace(config.clientToken)
-
-	config.nodeBootstrapToken = strings.TrimSpace(config.nodeBootstrapToken)
-	if config.nodeBootstrapToken == "" {
-		return nil, errors.New("node bootstrap token is required")
-	}
-
-	config.davAuthSecret = strings.TrimSpace(config.davAuthSecret)
-	if config.davAuthSecret == "" {
-		return nil, errors.New("dav auth secret is required")
-	}
-	if config.davCredentialTTL <= 0 {
-		return nil, errors.New("dav credential ttl must be greater than 0")
-	}
-
 	var s store
 	var err error
 	if config.dbPath != "" {
@@ -91,6 +70,7 @@ type nasNode struct {
 	LastSeenAt    string  `json:"lastSeenAt"`
 	DirectAddress *string `json:"directAddress"`
 	RelayAddress  *string `json:"relayAddress"`
+	OwnerID       string  `json:"-"`
 }
 
 type storageExport struct {
@@ -102,6 +82,7 @@ type storageExport struct {
 	Protocols     []string `json:"protocols"`
 	CapacityBytes *int64   `json:"capacityBytes"`
 	Tags          []string `json:"tags"`
+	OwnerID       string   `json:"-"`
 }
 
 type mountProfile struct {

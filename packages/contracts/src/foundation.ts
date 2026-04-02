@@ -9,7 +9,6 @@ export const FOUNDATION_API_ROUTES = {
 
 export const FOUNDATION_API_HEADERS = {
   authorization: "Authorization",
-  nodeToken: "X-BetterNAS-Node-Token",
 } as const;
 
 export type NasNodeStatus = "online" | "offline" | "degraded";

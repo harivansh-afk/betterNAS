@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,8 +16,9 @@ import (
 var testControlPlaneNow = time.Date(2025, time.January, 1, 12, 0, 0, 0, time.UTC)
 
 const (
+	testPassword           = "password123"
 	testClientToken        = "test-client-token"
-	testNodeBootstrapToken = "test-node-bootstrap-token"
+	testNodeBootstrapToken = "test-node-session-token"
 )
 
 type registeredNode struct {
@@ -94,7 +96,7 @@ func TestControlPlaneRegistrationProfilesAndHeartbeat(t *testing.T) {
 		RelayAddress:  &relayAddress,
 	})
 	if registration.NodeToken == "" {
-		t.Fatal("expected node registration to return a node token")
+		t.Fatal("expected node registration to preserve the session token")
 	}
 
 	syncedExports := syncNodeExports(t, server.Client(), registration.NodeToken, server.URL+"/api/v1/nodes/"+registration.Node.ID+"/exports", nodeExportsRequest{
@@ -169,14 +171,14 @@ func TestControlPlaneRegistrationProfilesAndHeartbeat(t *testing.T) {
 	if mount.Credential.Mode != mountCredentialModeBasicAuth {
 		t.Fatalf("expected credential mode %q, got %q", mountCredentialModeBasicAuth, mount.Credential.Mode)
 	}
-	if mount.Credential.Username == "" {
-		t.Fatal("expected mount credential username to be set")
+	if mount.Credential.Username != "fixture" {
+		t.Fatalf("expected mount credential username %q, got %q", "fixture", mount.Credential.Username)
 	}
-	if mount.Credential.Password == "" {
-		t.Fatal("expected mount credential password to be set")
+	if mount.Credential.Password != "" {
+		t.Fatalf("expected mount credential password to be blank, got %q", mount.Credential.Password)
 	}
-	if mount.Credential.ExpiresAt == "" {
-		t.Fatal("expected mount credential expiry to be set")
+	if mount.Credential.ExpiresAt != "" {
+		t.Fatalf("expected mount credential expiry to be blank, got %q", mount.Credential.ExpiresAt)
 	}
 
 	cloud := postJSONAuth[cloudProfile](t, server.Client(), testClientToken, server.URL+"/api/v1/cloud-profiles/issue", cloudProfileRequest{
@@ -231,7 +233,7 @@ func TestControlPlaneExportSyncReconcilesExportsAndKeepsStableIDs(t *testing.T) 
 		RelayAddress:  nil,
 	})
 
-	putJSONAuthStatus(t, server.Client(), testNodeBootstrapToken, server.URL+"/api/v1/nodes/"+firstRegistration.Node.ID+"/exports", nodeExportsRequest{
+	putJSONAuthStatus(t, server.Client(), "wrong-session-token", server.URL+"/api/v1/nodes/"+firstRegistration.Node.ID+"/exports", nodeExportsRequest{
 		Exports: []storageExportInput{
 			{
 				Label:         "Docs",
@@ -285,7 +287,7 @@ func TestControlPlaneExportSyncReconcilesExportsAndKeepsStableIDs(t *testing.T) 
 		RelayAddress:  nil,
 	})
 
-	putJSONAuthStatus(t, server.Client(), testClientToken, server.URL+"/api/v1/nodes/"+firstRegistration.Node.ID+"/exports", nodeExportsRequest{
+	putJSONAuthStatus(t, server.Client(), "wrong-session-token", server.URL+"/api/v1/nodes/"+firstRegistration.Node.ID+"/exports", nodeExportsRequest{
 		Exports: []storageExportInput{
 			{
 				Label:         "Docs v2",
@@ -330,8 +332,8 @@ func TestControlPlaneExportSyncReconcilesExportsAndKeepsStableIDs(t *testing.T) 
 	if secondRegistration.Node.ID != firstRegistration.Node.ID {
 		t.Fatalf("expected re-registration to keep node ID %q, got %q", firstRegistration.Node.ID, secondRegistration.Node.ID)
 	}
-	if secondRegistration.NodeToken != "" {
-		t.Fatalf("expected re-registration to keep the existing node token, got %q", secondRegistration.NodeToken)
+	if secondRegistration.NodeToken != firstRegistration.NodeToken {
+		t.Fatalf("expected re-registration to keep the existing session token %q, got %q", firstRegistration.NodeToken, secondRegistration.NodeToken)
 	}
 
 	updatedExports := exportsByPath(getJSONAuth[[]storageExport](t, server.Client(), testClientToken, server.URL+"/api/v1/exports"))
@@ -539,12 +541,12 @@ func TestControlPlaneCloudProfilesRequireConfiguredBaseURLAndExistingExport(t *t
 func TestControlPlanePersistsRegistryAcrossAppRestart(t *testing.T) {
 	t.Parallel()
 
-	statePath := filepath.Join(t.TempDir(), "control-plane-state.json")
+	dbPath := filepath.Join(t.TempDir(), "control-plane.db")
 	directAddress := "http://nas.local:8090"
 
 	_, firstServer := newTestControlPlaneServer(t, appConfig{
-		version:   "test-version",
-		statePath: statePath,
+		version: "test-version",
+		dbPath:  dbPath,
 	})
 	registration := registerNode(t, firstServer.Client(), firstServer.URL+"/api/v1/nodes/register", testNodeBootstrapToken, nodeRegistrationRequest{
 		MachineID:     "machine-persisted",
@@ -566,8 +568,8 @@ func TestControlPlanePersistsRegistryAcrossAppRestart(t *testing.T) {
 	firstServer.Close()
 
 	_, secondServer := newTestControlPlaneServer(t, appConfig{
-		version:   "test-version",
-		statePath: statePath,
+		version: "test-version",
+		dbPath:  dbPath,
 	})
 	defer secondServer.Close()
 
@@ -656,15 +658,12 @@ func TestControlPlaneRejectsInvalidRequestsAndEnforcesAuth(t *testing.T) {
 	if err := json.NewDecoder(response.Body).Decode(&node); err != nil {
 		t.Fatalf("decode registration response: %v", err)
 	}
-	nodeToken := strings.TrimSpace(response.Header.Get(controlPlaneNodeTokenKey))
-	if nodeToken == "" {
-		t.Fatal("expected node registration to return a node token")
-	}
+	nodeToken := testNodeBootstrapToken
 	if node.ID != "dev-node" {
 		t.Fatalf("expected node ID %q, got %q", "dev-node", node.ID)
 	}
 
-	putJSONAuthStatus(t, server.Client(), testClientToken, server.URL+"/api/v1/nodes/"+node.ID+"/exports", nodeExportsRequest{
+	putJSONAuthStatus(t, server.Client(), "wrong-session-token", server.URL+"/api/v1/nodes/"+node.ID+"/exports", nodeExportsRequest{
 		Exports: []storageExportInput{{
 			Label:         "Docs",
 			Path:          "/srv/docs",
@@ -716,7 +715,7 @@ func TestControlPlaneRejectsInvalidRequestsAndEnforcesAuth(t *testing.T) {
 		},
 	}, http.StatusBadRequest)
 
-	postJSONAuthStatus(t, server.Client(), testClientToken, server.URL+"/api/v1/nodes/"+node.ID+"/heartbeat", nodeHeartbeatRequest{
+	postJSONAuthStatus(t, server.Client(), "wrong-session-token", server.URL+"/api/v1/nodes/"+node.ID+"/heartbeat", nodeHeartbeatRequest{
 		NodeID:     node.ID,
 		Status:     "online",
 		LastSeenAt: "2025-01-02T03:04:05Z",
@@ -765,20 +764,11 @@ func TestControlPlaneRejectsInvalidRequestsAndEnforcesAuth(t *testing.T) {
 func newTestControlPlaneServer(t *testing.T, config appConfig) (*app, *httptest.Server) {
 	t.Helper()
 
+	if config.dbPath == "" {
+		config.dbPath = filepath.Join(t.TempDir(), "test.db")
+	}
 	if config.version == "" {
 		config.version = "test-version"
-	}
-	if config.clientToken == "" {
-		config.clientToken = testClientToken
-	}
-	if config.nodeBootstrapToken == "" {
-		config.nodeBootstrapToken = testNodeBootstrapToken
-	}
-	if config.davAuthSecret == "" {
-		config.davAuthSecret = "test-dav-auth-secret"
-	}
-	if config.davCredentialTTL == 0 {
-		config.davCredentialTTL = time.Hour
 	}
 
 	app, err := newApp(config, testControlPlaneNow)
@@ -788,9 +778,44 @@ func newTestControlPlaneServer(t *testing.T, config appConfig) (*app, *httptest.
 	app.now = func() time.Time {
 		return testControlPlaneNow
 	}
+	seedDefaultSessionUser(t, app)
 
 	server := httptest.NewServer(app.handler())
 	return app, server
+}
+
+func seedDefaultSessionUser(t *testing.T, app *app) {
+	t.Helper()
+
+	u, err := app.store.createUser("fixture", testPassword)
+	if err != nil && !errors.Is(err, errUsernameTaken) {
+		t.Fatalf("seed default test user: %v", err)
+	}
+	if errors.Is(err, errUsernameTaken) {
+		u, err = app.store.authenticateUser("fixture", testPassword)
+		if err != nil {
+			t.Fatalf("authenticate seeded test user: %v", err)
+		}
+	}
+
+	sqliteStore, ok := app.store.(*sqliteStore)
+	if !ok {
+		return
+	}
+
+	createdAt := time.Now().UTC().Format(time.RFC3339)
+	expiresAt := time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339)
+	for _, token := range []string{testClientToken, testNodeBootstrapToken} {
+		if _, err := sqliteStore.db.Exec(
+			"INSERT OR REPLACE INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+			token,
+			u.ID,
+			createdAt,
+			expiresAt,
+		); err != nil {
+			t.Fatalf("seed session %s: %v", token, err)
+		}
+	}
 }
 
 func exportsByPath(exports []storageExport) map[string]storageExport {
@@ -820,8 +845,17 @@ func registerNode(t *testing.T, client *http.Client, endpoint string, token stri
 
 	return registeredNode{
 		Node:      node,
-		NodeToken: strings.TrimSpace(response.Header.Get(controlPlaneNodeTokenKey)),
+		NodeToken: strings.TrimSpace(token),
 	}
+}
+
+func registerSessionUser(t *testing.T, client *http.Client, baseURL string, username string) authLoginResponse {
+	t.Helper()
+
+	return postJSONAuthCreated[authLoginResponse](t, client, "", baseURL+"/api/v1/auth/register", authRegisterRequest{
+		Username: username,
+		Password: testPassword,
+	})
 }
 
 func syncNodeExports(t *testing.T, client *http.Client, token string, endpoint string, payload nodeExportsRequest) []storageExport {

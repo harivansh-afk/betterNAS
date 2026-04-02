@@ -196,21 +196,25 @@ func TestAuthSessionUsedForClientEndpoints(t *testing.T) {
 	}
 }
 
-func TestAuthStaticTokenFallback(t *testing.T) {
+func TestAuthSessionIsTheOnlyClientAuthPath(t *testing.T) {
 	t.Parallel()
 
 	_, server := newTestSQLiteApp(t, appConfig{
-		version:     "test-version",
-		clientToken: "static-fallback-token",
+		version:             "test-version",
+		registrationEnabled: true,
 	})
 	defer server.Close()
 
-	// Static token should work for client endpoints.
-	exports := getJSONAuth[[]storageExport](t, server.Client(), "static-fallback-token", server.URL+"/api/v1/exports")
+	reg := postJSONAuthCreated[authLoginResponse](t, server.Client(), "", server.URL+"/api/v1/auth/register", authRegisterRequest{
+		Username: "sessiononly",
+		Password: "password123",
+	})
+
+	exports := getJSONAuth[[]storageExport](t, server.Client(), reg.Token, server.URL+"/api/v1/exports")
 	if exports == nil {
 		t.Fatal("expected exports list, got nil")
 	}
 
-	// Wrong token should fail.
+	getStatusWithAuth(t, server.Client(), "static-fallback-token", server.URL+"/api/v1/exports", http.StatusUnauthorized)
 	getStatusWithAuth(t, server.Client(), "wrong", server.URL+"/api/v1/exports", http.StatusUnauthorized)
 }

@@ -64,10 +64,7 @@ export function isAuthenticated(): boolean {
   return getToken() !== null;
 }
 
-async function apiFetch<T>(
-  path: string,
-  options?: RequestInit,
-): Promise<T> {
+async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {};
   const token = getToken();
   if (token) {
@@ -79,7 +76,10 @@ async function apiFetch<T>(
 
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: { ...headers, ...Object.fromEntries(new Headers(options?.headers).entries()) },
+    headers: {
+      ...headers,
+      ...Object.fromEntries(new Headers(options?.headers).entries()),
+    },
   });
 
   if (!response.ok) {

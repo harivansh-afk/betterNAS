@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,12 +20,12 @@ var (
 	errMountTargetUnavailable  = errors.New("mount target is not available")
 	errNodeIDMismatch          = errors.New("node id path and body must match")
 	errNodeNotFound            = errors.New("node not found")
+	errNodeOwnedByAnotherUser  = errors.New("node is already owned by another user")
 )
 
 const (
-	authorizationHeader      = "Authorization"
-	controlPlaneNodeTokenKey = "X-BetterNAS-Node-Token"
-	bearerScheme             = "Bearer"
+	authorizationHeader = "Authorization"
+	bearerScheme        = "Bearer"
 )
 
 func (a *app) handler() http.Handler {
@@ -76,6 +75,11 @@ func (a *app) handleVersion(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (a *app) handleNodeRegister(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := a.requireSessionUser(w, r)
+	if !ok {
+		return
+	}
+
 	request, err := decodeNodeRegistrationRequest(w, r)
 	if err != nil {
 		writeDecodeError(w, err)
@@ -87,23 +91,25 @@ func (a *app) handleNodeRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !a.authorizeNodeRegistration(w, r, request.MachineID) {
-		return
-	}
-
-	result, err := a.store.registerNode(request, a.now())
+	result, err := a.store.registerNode(currentUser.ID, request, a.now())
 	if err != nil {
+		if errors.Is(err, errNodeOwnedByAnotherUser) {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}
-	if result.IssuedNodeToken != "" {
-		w.Header().Set(controlPlaneNodeTokenKey, result.IssuedNodeToken)
 	}
 
 	writeJSON(w, http.StatusOK, result.Node)
 }
 
 func (a *app) handleNodeHeartbeat(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := a.requireSessionUser(w, r)
+	if !ok {
+		return
+	}
+
 	nodeID := r.PathValue("nodeId")
 
 	var request nodeHeartbeatRequest
@@ -121,11 +127,7 @@ func (a *app) handleNodeHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !a.authorizeNode(w, r, nodeID) {
-		return
-	}
-
-	if err := a.store.recordHeartbeat(nodeID, request); err != nil {
+	if err := a.store.recordHeartbeat(nodeID, currentUser.ID, request); err != nil {
 		statusCode := http.StatusInternalServerError
 		if errors.Is(err, errNodeNotFound) {
 			statusCode = http.StatusNotFound
@@ -138,6 +140,11 @@ func (a *app) handleNodeHeartbeat(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *app) handleNodeExports(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := a.requireSessionUser(w, r)
+	if !ok {
+		return
+	}
+
 	nodeID := r.PathValue("nodeId")
 
 	request, err := decodeNodeExportsRequest(w, r)
@@ -151,11 +158,7 @@ func (a *app) handleNodeExports(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !a.authorizeNode(w, r, nodeID) {
-		return
-	}
-
-	exports, err := a.store.upsertExports(nodeID, request)
+	exports, err := a.store.upsertExports(nodeID, currentUser.ID, request)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		if errors.Is(err, errNodeNotFound) {
@@ -169,15 +172,17 @@ func (a *app) handleNodeExports(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *app) handleExportsList(w http.ResponseWriter, r *http.Request) {
-	if !a.requireClientAuth(w, r) {
+	currentUser, ok := a.requireSessionUser(w, r)
+	if !ok {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, a.store.listExports())
+	writeJSON(w, http.StatusOK, a.store.listExports(currentUser.ID))
 }
 
 func (a *app) handleMountProfileIssue(w http.ResponseWriter, r *http.Request) {
-	if !a.requireClientAuth(w, r) {
+	currentUser, ok := a.requireSessionUser(w, r)
+	if !ok {
 		return
 	}
 
@@ -192,8 +197,8 @@ func (a *app) handleMountProfileIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	context, ok := a.store.exportContext(request.ExportID)
-	if !ok {
+	context, found := a.store.exportContext(request.ExportID, currentUser.ID)
+	if !found {
 		http.Error(w, errExportNotFound.Error(), http.StatusNotFound)
 		return
 	}
@@ -204,32 +209,20 @@ func (a *app) handleMountProfileIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	credentialID, credential, err := issueMountCredential(
-		a.config.davAuthSecret,
-		context.node.ID,
-		mountProfilePathForExport(context.export.MountPath),
-		false,
-		a.now(),
-		a.config.davCredentialTTL,
-	)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	writeJSON(w, http.StatusOK, mountProfile{
-		ID:          credentialID,
+		ID:          context.export.ID,
 		ExportID:    context.export.ID,
 		Protocol:    "webdav",
 		DisplayName: context.export.Label,
 		MountURL:    mountURL,
 		Readonly:    false,
-		Credential:  credential,
+		Credential:  buildAccountMountCredential(currentUser.Username),
 	})
 }
 
 func (a *app) handleCloudProfileIssue(w http.ResponseWriter, r *http.Request) {
-	if !a.requireClientAuth(w, r) {
+	currentUser, ok := a.requireSessionUser(w, r)
+	if !ok {
 		return
 	}
 
@@ -244,8 +237,8 @@ func (a *app) handleCloudProfileIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	context, ok := a.store.exportContext(request.ExportID)
-	if !ok {
+	context, found := a.store.exportContext(request.ExportID, currentUser.ID)
+	if !found {
 		http.Error(w, errExportNotFound.Error(), http.StatusNotFound)
 		return
 	}
@@ -257,7 +250,7 @@ func (a *app) handleCloudProfileIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, cloudProfile{
-		ID:       fmt.Sprintf("cloud-%s-%s", request.UserID, context.export.ID),
+		ID:       fmt.Sprintf("cloud-%s-%s", currentUser.ID, context.export.ID),
 		ExportID: context.export.ID,
 		Provider: "nextcloud",
 		BaseURL:  baseURL,
@@ -1034,71 +1027,22 @@ func corsMiddleware(allowedOrigin string, next http.Handler) http.Handler {
 	})
 }
 
-// --- client auth ---
+// --- session auth ---
 
-func (a *app) requireClientAuth(w http.ResponseWriter, r *http.Request) bool {
+func (a *app) requireSessionUser(w http.ResponseWriter, r *http.Request) (user, bool) {
 	presentedToken, ok := bearerToken(r)
 	if !ok {
 		writeUnauthorized(w)
-		return false
+		return user{}, false
 	}
 
-	// Session-based auth (SQLite).
-	if _, err := a.store.validateSession(presentedToken); err == nil {
-		return true
-	}
-
-	// Fall back to static client token for backwards compatibility.
-	if a.config.clientToken != "" && secureStringEquals(a.config.clientToken, presentedToken) {
-		return true
-	}
-
-	writeUnauthorized(w)
-	return false
-}
-
-func (a *app) authorizeNodeRegistration(w http.ResponseWriter, r *http.Request, machineID string) bool {
-	presentedToken, ok := bearerToken(r)
-	if !ok {
+	currentUser, err := a.store.validateSession(presentedToken)
+	if err != nil {
 		writeUnauthorized(w)
-		return false
+		return user{}, false
 	}
 
-	authState, exists := a.store.nodeAuthByMachineID(machineID)
-	if !exists || strings.TrimSpace(authState.TokenHash) == "" {
-		if !secureStringEquals(a.config.nodeBootstrapToken, presentedToken) {
-			writeUnauthorized(w)
-			return false
-		}
-		return true
-	}
-
-	if !tokenHashMatches(authState.TokenHash, presentedToken) {
-		writeUnauthorized(w)
-		return false
-	}
-
-	return true
-}
-
-func (a *app) authorizeNode(w http.ResponseWriter, r *http.Request, nodeID string) bool {
-	presentedToken, ok := bearerToken(r)
-	if !ok {
-		writeUnauthorized(w)
-		return false
-	}
-
-	authState, exists := a.store.nodeAuthByID(nodeID)
-	if !exists {
-		http.Error(w, errNodeNotFound.Error(), http.StatusNotFound)
-		return false
-	}
-	if strings.TrimSpace(authState.TokenHash) == "" || !tokenHashMatches(authState.TokenHash, presentedToken) {
-		writeUnauthorized(w)
-		return false
-	}
-
-	return true
+	return currentUser, true
 }
 
 func bearerToken(r *http.Request) (string, bool) {
@@ -1123,12 +1067,4 @@ func bearerToken(r *http.Request) (string, bool) {
 func writeUnauthorized(w http.ResponseWriter) {
 	w.Header().Set("WWW-Authenticate", bearerScheme)
 	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-}
-
-func secureStringEquals(expected string, actual string) bool {
-	return subtle.ConstantTimeCompare([]byte(expected), []byte(actual)) == 1
-}
-
-func tokenHashMatches(expectedHash string, token string) bool {
-	return secureStringEquals(expectedHash, hashOpaqueToken(token))
 }

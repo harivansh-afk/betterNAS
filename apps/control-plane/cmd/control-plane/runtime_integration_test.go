@@ -31,10 +31,7 @@ var (
 	nodeAgentBinaryErr  error
 )
 
-const (
-	runtimeDAVAuthSecret    = "runtime-dav-auth-secret"
-	runtimeDAVCredentialTTL = "1h"
-)
+const runtimeUsername = "runtime-user"
 
 func TestControlPlaneBinaryMountLoopIntegration(t *testing.T) {
 	exportDir := t.TempDir()
@@ -47,7 +44,7 @@ func TestControlPlaneBinaryMountLoopIntegration(t *testing.T) {
 	nodeAgent := startNodeAgentBinaryWithExports(t, controlPlane.baseURL, []string{exportDir}, "machine-runtime-1")
 	client := &http.Client{Timeout: 2 * time.Second}
 
-	exports := waitForExportsByPath(t, client, controlPlane.baseURL+"/api/v1/exports", []string{exportDir})
+	exports := waitForExportsByPath(t, client, controlPlane.sessionToken, controlPlane.baseURL+"/api/v1/exports", []string{exportDir})
 	export := exports[exportDir]
 	if export.ID != "dev-export" {
 		t.Fatalf("expected export ID %q, got %q", "dev-export", export.ID)
@@ -56,7 +53,7 @@ func TestControlPlaneBinaryMountLoopIntegration(t *testing.T) {
 		t.Fatalf("expected mountPath %q, got %q", defaultWebDAVPath, export.MountPath)
 	}
 
-	mount := postJSONAuth[mountProfile](t, client, testClientToken, controlPlane.baseURL+"/api/v1/mount-profiles/issue", mountProfileRequest{
+	mount := postJSONAuth[mountProfile](t, client, controlPlane.sessionToken, controlPlane.baseURL+"/api/v1/mount-profiles/issue", mountProfileRequest{
 		ExportID: export.ID,
 	})
 	if mount.MountURL != nodeAgent.baseURL+defaultWebDAVPath {
@@ -66,11 +63,11 @@ func TestControlPlaneBinaryMountLoopIntegration(t *testing.T) {
 		t.Fatalf("expected mount credential mode %q, got %q", mountCredentialModeBasicAuth, mount.Credential.Mode)
 	}
 
-	assertHTTPStatusWithBasicAuth(t, client, "PROPFIND", mount.MountURL, mount.Credential.Username, mount.Credential.Password, http.StatusMultiStatus)
-	assertMountedFileContentsWithBasicAuth(t, client, mount.MountURL+"README.txt", mount.Credential.Username, mount.Credential.Password, "betterNAS export\n")
+	assertHTTPStatusWithBasicAuth(t, client, "PROPFIND", mount.MountURL, controlPlane.username, controlPlane.password, http.StatusMultiStatus)
+	assertMountedFileContentsWithBasicAuth(t, client, mount.MountURL+"README.txt", controlPlane.username, controlPlane.password, "betterNAS export\n")
 
-	cloud := postJSONAuth[cloudProfile](t, client, testClientToken, controlPlane.baseURL+"/api/v1/cloud-profiles/issue", cloudProfileRequest{
-		UserID:   "runtime-user",
+	cloud := postJSONAuth[cloudProfile](t, client, controlPlane.sessionToken, controlPlane.baseURL+"/api/v1/cloud-profiles/issue", cloudProfileRequest{
+		UserID:   controlPlane.userID,
 		ExportID: export.ID,
 		Provider: "nextcloud",
 	})
@@ -97,12 +94,12 @@ func TestControlPlaneBinaryMultiExportProfilesStayDistinct(t *testing.T) {
 
 	firstMountPath := nodeAgentMountPathForExport(firstExportDir, 2)
 	secondMountPath := nodeAgentMountPathForExport(secondExportDir, 2)
-	exports := waitForExportsByPath(t, client, controlPlane.baseURL+"/api/v1/exports", []string{firstExportDir, secondExportDir})
+	exports := waitForExportsByPath(t, client, controlPlane.sessionToken, controlPlane.baseURL+"/api/v1/exports", []string{firstExportDir, secondExportDir})
 	firstExport := exports[firstExportDir]
 	secondExport := exports[secondExportDir]
 
-	firstMount := postJSONAuth[mountProfile](t, client, testClientToken, controlPlane.baseURL+"/api/v1/mount-profiles/issue", mountProfileRequest{ExportID: firstExport.ID})
-	secondMount := postJSONAuth[mountProfile](t, client, testClientToken, controlPlane.baseURL+"/api/v1/mount-profiles/issue", mountProfileRequest{ExportID: secondExport.ID})
+	firstMount := postJSONAuth[mountProfile](t, client, controlPlane.sessionToken, controlPlane.baseURL+"/api/v1/mount-profiles/issue", mountProfileRequest{ExportID: firstExport.ID})
+	secondMount := postJSONAuth[mountProfile](t, client, controlPlane.sessionToken, controlPlane.baseURL+"/api/v1/mount-profiles/issue", mountProfileRequest{ExportID: secondExport.ID})
 	if firstMount.MountURL == secondMount.MountURL {
 		t.Fatalf("expected distinct runtime mount URLs, got %q", firstMount.MountURL)
 	}
@@ -113,18 +110,18 @@ func TestControlPlaneBinaryMultiExportProfilesStayDistinct(t *testing.T) {
 		t.Fatalf("expected second runtime mount URL %q, got %q", nodeAgent.baseURL+secondMountPath, secondMount.MountURL)
 	}
 
-	assertHTTPStatusWithBasicAuth(t, client, "PROPFIND", firstMount.MountURL, firstMount.Credential.Username, firstMount.Credential.Password, http.StatusMultiStatus)
-	assertHTTPStatusWithBasicAuth(t, client, "PROPFIND", secondMount.MountURL, secondMount.Credential.Username, secondMount.Credential.Password, http.StatusMultiStatus)
-	assertMountedFileContentsWithBasicAuth(t, client, firstMount.MountURL+"README.txt", firstMount.Credential.Username, firstMount.Credential.Password, "first runtime export\n")
-	assertMountedFileContentsWithBasicAuth(t, client, secondMount.MountURL+"README.txt", secondMount.Credential.Username, secondMount.Credential.Password, "second runtime export\n")
+	assertHTTPStatusWithBasicAuth(t, client, "PROPFIND", firstMount.MountURL, controlPlane.username, controlPlane.password, http.StatusMultiStatus)
+	assertHTTPStatusWithBasicAuth(t, client, "PROPFIND", secondMount.MountURL, controlPlane.username, controlPlane.password, http.StatusMultiStatus)
+	assertMountedFileContentsWithBasicAuth(t, client, firstMount.MountURL+"README.txt", controlPlane.username, controlPlane.password, "first runtime export\n")
+	assertMountedFileContentsWithBasicAuth(t, client, secondMount.MountURL+"README.txt", controlPlane.username, controlPlane.password, "second runtime export\n")
 
-	firstCloud := postJSONAuth[cloudProfile](t, client, testClientToken, controlPlane.baseURL+"/api/v1/cloud-profiles/issue", cloudProfileRequest{
-		UserID:   "runtime-user",
+	firstCloud := postJSONAuth[cloudProfile](t, client, controlPlane.sessionToken, controlPlane.baseURL+"/api/v1/cloud-profiles/issue", cloudProfileRequest{
+		UserID:   controlPlane.userID,
 		ExportID: firstExport.ID,
 		Provider: "nextcloud",
 	})
-	secondCloud := postJSONAuth[cloudProfile](t, client, testClientToken, controlPlane.baseURL+"/api/v1/cloud-profiles/issue", cloudProfileRequest{
-		UserID:   "runtime-user",
+	secondCloud := postJSONAuth[cloudProfile](t, client, controlPlane.sessionToken, controlPlane.baseURL+"/api/v1/cloud-profiles/issue", cloudProfileRequest{
+		UserID:   controlPlane.userID,
 		ExportID: secondExport.ID,
 		Provider: "nextcloud",
 	})
@@ -140,8 +137,12 @@ func TestControlPlaneBinaryMultiExportProfilesStayDistinct(t *testing.T) {
 }
 
 type runningBinary struct {
-	baseURL string
-	logPath string
+	baseURL      string
+	logPath      string
+	sessionToken string
+	username     string
+	password     string
+	userID       string
 }
 
 func startControlPlaneBinary(t *testing.T, version string, nextcloudBaseURL string) runningBinary {
@@ -149,7 +150,7 @@ func startControlPlaneBinary(t *testing.T, version string, nextcloudBaseURL stri
 
 	port := reserveTCPPort(t)
 	logPath := filepath.Join(t.TempDir(), "control-plane.log")
-	statePath := filepath.Join(t.TempDir(), "control-plane-state.json")
+	dbPath := filepath.Join(t.TempDir(), "control-plane.db")
 	logFile, err := os.Create(logPath)
 	if err != nil {
 		t.Fatalf("create control-plane log file: %v", err)
@@ -162,11 +163,8 @@ func startControlPlaneBinary(t *testing.T, version string, nextcloudBaseURL stri
 		"PORT="+port,
 		"BETTERNAS_VERSION="+version,
 		"NEXTCLOUD_BASE_URL="+nextcloudBaseURL,
-		"BETTERNAS_CONTROL_PLANE_STATE_PATH="+statePath,
-		"BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN="+testClientToken,
-		"BETTERNAS_CONTROL_PLANE_NODE_BOOTSTRAP_TOKEN="+testNodeBootstrapToken,
-		"BETTERNAS_DAV_AUTH_SECRET="+runtimeDAVAuthSecret,
-		"BETTERNAS_DAV_CREDENTIAL_TTL="+runtimeDAVCredentialTTL,
+		"BETTERNAS_CONTROL_PLANE_DB_PATH="+dbPath,
+		"BETTERNAS_REGISTRATION_ENABLED=true",
 	)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
@@ -183,11 +181,16 @@ func startControlPlaneBinary(t *testing.T, version string, nextcloudBaseURL stri
 
 	baseURL := fmt.Sprintf("http://127.0.0.1:%s", port)
 	waitForHTTPStatus(t, baseURL+"/health", waitDone, logPath, http.StatusOK)
+	session := registerRuntimeUser(t, &http.Client{Timeout: 2 * time.Second}, baseURL)
 	registerProcessCleanup(t, ctx, cancel, cmd, waitDone, logFile, logPath, "control-plane")
 
 	return runningBinary{
-		baseURL: baseURL,
-		logPath: logPath,
+		baseURL:      baseURL,
+		logPath:      logPath,
+		sessionToken: session.Token,
+		username:     runtimeUsername,
+		password:     testPassword,
+		userID:       session.User.ID,
 	}
 }
 
@@ -197,7 +200,6 @@ func startNodeAgentBinaryWithExports(t *testing.T, controlPlaneBaseURL string, e
 	port := reserveTCPPort(t)
 	baseURL := fmt.Sprintf("http://127.0.0.1:%s", port)
 	logPath := filepath.Join(t.TempDir(), "node-agent.log")
-	nodeTokenPath := filepath.Join(t.TempDir(), "node-token")
 	logFile, err := os.Create(logPath)
 	if err != nil {
 		t.Fatalf("create node-agent log file: %v", err)
@@ -215,12 +217,11 @@ func startNodeAgentBinaryWithExports(t *testing.T, controlPlaneBaseURL string, e
 		"PORT="+port,
 		"BETTERNAS_EXPORT_PATHS_JSON="+string(rawExportPaths),
 		"BETTERNAS_CONTROL_PLANE_URL="+controlPlaneBaseURL,
-		"BETTERNAS_CONTROL_PLANE_NODE_BOOTSTRAP_TOKEN="+testNodeBootstrapToken,
-		"BETTERNAS_NODE_TOKEN_PATH="+nodeTokenPath,
+		"BETTERNAS_USERNAME="+runtimeUsername,
+		"BETTERNAS_PASSWORD="+testPassword,
 		"BETTERNAS_NODE_MACHINE_ID="+machineID,
 		"BETTERNAS_NODE_DISPLAY_NAME="+machineID,
 		"BETTERNAS_NODE_DIRECT_ADDRESS="+baseURL,
-		"BETTERNAS_DAV_AUTH_SECRET="+runtimeDAVAuthSecret,
 		"BETTERNAS_VERSION=runtime-test-version",
 	)
 	cmd.Stdout = logFile
@@ -245,12 +246,12 @@ func startNodeAgentBinaryWithExports(t *testing.T, controlPlaneBaseURL string, e
 	}
 }
 
-func waitForExportsByPath(t *testing.T, client *http.Client, endpoint string, expectedPaths []string) map[string]storageExport {
+func waitForExportsByPath(t *testing.T, client *http.Client, token string, endpoint string, expectedPaths []string) map[string]storageExport {
 	t.Helper()
 
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		exports := getJSONAuth[[]storageExport](t, client, testClientToken, endpoint)
+		exports := getJSONAuth[[]storageExport](t, client, token, endpoint)
 		exportsByPath := exportsByPath(exports)
 		allPresent := true
 		for _, expectedPath := range expectedPaths {
@@ -267,6 +268,15 @@ func waitForExportsByPath(t *testing.T, client *http.Client, endpoint string, ex
 
 	t.Fatalf("exports for %v did not appear in time", expectedPaths)
 	return nil
+}
+
+func registerRuntimeUser(t *testing.T, client *http.Client, baseURL string) authLoginResponse {
+	t.Helper()
+
+	return postJSONAuthCreated[authLoginResponse](t, client, "", baseURL+"/api/v1/auth/register", authRegisterRequest{
+		Username: runtimeUsername,
+		Password: testPassword,
+	})
 }
 
 func buildControlPlaneBinary(t *testing.T) string {

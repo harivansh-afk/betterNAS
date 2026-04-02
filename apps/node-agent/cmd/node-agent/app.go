@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,15 +18,15 @@ const (
 )
 
 type appConfig struct {
-	exportPaths   []string
-	nodeID        string
-	davAuthSecret string
+	exportPaths  []string
+	authUsername string
+	authPassword string
 }
 
 type app struct {
-	nodeID        string
-	davAuthSecret string
-	exportMounts  []exportMount
+	authUsername string
+	authPassword string
+	exportMounts []exportMount
 }
 
 type exportMount struct {
@@ -34,14 +35,12 @@ type exportMount struct {
 }
 
 func newApp(config appConfig) (*app, error) {
-	config.nodeID = strings.TrimSpace(config.nodeID)
-	if config.nodeID == "" {
-		return nil, errors.New("nodeID is required")
+	config.authUsername = strings.TrimSpace(config.authUsername)
+	if config.authUsername == "" {
+		return nil, errors.New("authUsername is required")
 	}
-
-	config.davAuthSecret = strings.TrimSpace(config.davAuthSecret)
-	if config.davAuthSecret == "" {
-		return nil, errors.New("davAuthSecret is required")
+	if config.authPassword == "" {
+		return nil, errors.New("authPassword is required")
 	}
 
 	exportMounts, err := buildExportMounts(config.exportPaths)
@@ -50,9 +49,9 @@ func newApp(config appConfig) (*app, error) {
 	}
 
 	return &app{
-		nodeID:        config.nodeID,
-		davAuthSecret: config.davAuthSecret,
-		exportMounts:  exportMounts,
+		authUsername: config.authUsername,
+		authPassword: config.authPassword,
+		exportMounts: exportMounts,
 	}, nil
 }
 
@@ -62,24 +61,24 @@ func newAppFromEnv() (*app, error) {
 		return nil, err
 	}
 
-	davAuthSecret, err := requiredEnv("BETTERNAS_DAV_AUTH_SECRET")
+	authUsername, err := requiredEnv("BETTERNAS_USERNAME")
 	if err != nil {
 		return nil, err
 	}
-
-	nodeID := strings.TrimSpace(env("BETTERNAS_NODE_ID", ""))
+	authPassword, err := requiredEnv("BETTERNAS_PASSWORD")
+	if err != nil {
+		return nil, err
+	}
 	if strings.TrimSpace(env("BETTERNAS_CONTROL_PLANE_URL", "")) != "" {
-		bootstrapResult, err := bootstrapNodeAgentFromEnv(exportPaths)
-		if err != nil {
+		if _, err := bootstrapNodeAgentFromEnv(exportPaths); err != nil {
 			return nil, err
 		}
-		nodeID = bootstrapResult.nodeID
 	}
 
 	return newApp(appConfig{
-		exportPaths:   exportPaths,
-		nodeID:        nodeID,
-		davAuthSecret: davAuthSecret,
+		exportPaths:  exportPaths,
+		authUsername: authUsername,
+		authPassword: authPassword,
 	})
 }
 
@@ -182,23 +181,18 @@ func (a *app) requireDAVAuth(mount exportMount, next http.Handler) http.Handler 
 			writeDAVUnauthorized(w)
 			return
 		}
-
-		claims, err := verifyMountCredential(a.davAuthSecret, password)
-		if err != nil {
+		if !a.matchesAccountCredential(username, password) {
 			writeDAVUnauthorized(w)
-			return
-		}
-		if claims.NodeID != a.nodeID || claims.MountPath != mount.mountPath || claims.Username != username {
-			writeDAVUnauthorized(w)
-			return
-		}
-		if claims.Readonly && !isDAVReadMethod(r.Method) {
-			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 			return
 		}
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (a *app) matchesAccountCredential(username string, password string) bool {
+	return subtle.ConstantTimeCompare([]byte(strings.TrimSpace(username)), []byte(a.authUsername)) == 1 &&
+		subtle.ConstantTimeCompare([]byte(password), []byte(a.authPassword)) == 1
 }
 
 func mountProfilePathForExport(exportPath string, exportCount int) string {

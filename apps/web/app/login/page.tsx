@@ -55,8 +55,8 @@ export default function LoginPage() {
           </CardTitle>
           <CardDescription>
             {mode === "login"
-              ? "Sign in to your betterNAS control plane."
-              : "Create your betterNAS account."}
+              ? "Sign in to your betterNAS control plane with the same credentials you use for the node agent and Finder."
+              : "Create your betterNAS account. You will use the same username and password for the web app, node agent, and Finder."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -103,9 +103,7 @@ export default function LoginPage() {
               />
             </div>
 
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
 
             <Button type="submit" disabled={loading} className="w-full">
               {loading

@@ -120,12 +120,14 @@ self-hosted mount flow.
 - issue mount profile
 - issue share or cloud profile later
 
+For v1, the same betterNAS username and password should be used across the web
+UI, node enrollment, and Finder WebDAV login.
+
 ### Local device -> control-server
 
 - fetch mount instructions
-- receive issued WebDAV URL and standard WebDAV credentials
+- receive issued WebDAV URL plus the betterNAS account username
   - username
-  - password
   - expiresAt
 
 ## Initial backend route sketch

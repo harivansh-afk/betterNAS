@@ -17,10 +17,10 @@ The request and response shapes must follow the contracts in
 [`packages/contracts`](../../packages/contracts).
 
 `/api/v1/*` endpoints require bearer auth. New nodes register with
-`BETTERNAS_CONTROL_PLANE_NODE_BOOTSTRAP_TOKEN`, client flows use
-`BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN`, and node registration returns an
-`X-BetterNAS-Node-Token` header for subsequent node-scoped register and
-heartbeat and export sync calls. Mount profiles now return standard WebDAV
-username and password credentials, and multi-export sync should send an
-explicit `mountPath` per export so mount profiles can stay stable across
+the same username and password session that users use in the web app.
+`BETTERNAS_USERNAME` and `BETTERNAS_PASSWORD` may be provided to seed a default
+account for local or self-hosted setups. Nodes and exports are owned by users,
+and mount profiles return the account username plus the mount URL so Finder can
+authenticate with that same betterNAS password. Multi-export sync should send
+an explicit `mountPath` per export so mount profiles can stay stable across
 runtimes.

@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	errUsernameTaken = errors.New("username already taken")
-	errInvalidLogin  = errors.New("invalid username or password")
+	errUsernameTaken  = errors.New("username already taken")
+	errInvalidLogin   = errors.New("invalid username or password")
 	errSessionExpired = errors.New("session expired or invalid")
 )
 
@@ -32,6 +32,7 @@ INSERT OR IGNORE INTO ordinals (name, value) VALUES ('node', 0), ('export', 0);
 CREATE TABLE IF NOT EXISTS nodes (
 	id              TEXT PRIMARY KEY,
 	machine_id      TEXT NOT NULL UNIQUE,
+	owner_id        TEXT REFERENCES users(id),
 	display_name    TEXT NOT NULL DEFAULT '',
 	agent_version   TEXT NOT NULL DEFAULT '',
 	status          TEXT NOT NULL DEFAULT 'online',
@@ -48,6 +49,7 @@ CREATE TABLE IF NOT EXISTS node_tokens (
 CREATE TABLE IF NOT EXISTS exports (
 	id         TEXT PRIMARY KEY,
 	node_id    TEXT NOT NULL REFERENCES nodes(id),
+	owner_id   TEXT REFERENCES users(id),
 	label      TEXT NOT NULL DEFAULT '',
 	path       TEXT NOT NULL,
 	mount_path TEXT NOT NULL DEFAULT '',
@@ -101,8 +103,38 @@ func newSQLiteStore(dbPath string) (*sqliteStore, error) {
 		db.Close()
 		return nil, fmt.Errorf("initialize database schema: %w", err)
 	}
+	if err := migrateSQLiteSchema(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 
 	return &sqliteStore{db: db}, nil
+}
+
+func migrateSQLiteSchema(db *sql.DB) error {
+	migrations := []string{
+		"ALTER TABLE nodes ADD COLUMN owner_id TEXT REFERENCES users(id)",
+		"ALTER TABLE exports ADD COLUMN owner_id TEXT REFERENCES users(id)",
+	}
+	for _, statement := range migrations {
+		if _, err := db.Exec(statement); err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+			return fmt.Errorf("run sqlite migration %q: %w", statement, err)
+		}
+	}
+
+	if _, err := db.Exec(`
+		UPDATE exports
+		SET owner_id = (
+			SELECT owner_id
+			FROM nodes
+			WHERE nodes.id = exports.node_id
+		)
+		WHERE owner_id IS NULL
+	`); err != nil {
+		return fmt.Errorf("backfill export owners: %w", err)
+	}
+
+	return nil
 }
 
 func (s *sqliteStore) nextOrdinal(tx *sql.Tx, name string) (int, error) {
@@ -128,7 +160,7 @@ func ordinalToExportID(ordinal int) string {
 	return fmt.Sprintf("dev-export-%d", ordinal)
 }
 
-func (s *sqliteStore) registerNode(request nodeRegistrationRequest, registeredAt time.Time) (nodeRegistrationResult, error) {
+func (s *sqliteStore) registerNode(ownerID string, request nodeRegistrationRequest, registeredAt time.Time) (nodeRegistrationResult, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nodeRegistrationResult{}, fmt.Errorf("begin transaction: %w", err)
@@ -137,7 +169,8 @@ func (s *sqliteStore) registerNode(request nodeRegistrationRequest, registeredAt
 
 	// Check if machine already registered.
 	var nodeID string
-	err = tx.QueryRow("SELECT id FROM nodes WHERE machine_id = ?", request.MachineID).Scan(&nodeID)
+	var existingOwnerID sql.NullString
+	err = tx.QueryRow("SELECT id, owner_id FROM nodes WHERE machine_id = ?", request.MachineID).Scan(&nodeID, &existingOwnerID)
 	if err == sql.ErrNoRows {
 		ordinal, err := s.nextOrdinal(tx, "node")
 		if err != nil {
@@ -146,43 +179,27 @@ func (s *sqliteStore) registerNode(request nodeRegistrationRequest, registeredAt
 		nodeID = ordinalToNodeID(ordinal)
 	} else if err != nil {
 		return nodeRegistrationResult{}, fmt.Errorf("lookup node by machine_id: %w", err)
+	} else if existingOwnerID.Valid && strings.TrimSpace(existingOwnerID.String) != "" && existingOwnerID.String != ownerID {
+		return nodeRegistrationResult{}, errNodeOwnedByAnotherUser
 	}
 
 	// Upsert node.
 	_, err = tx.Exec(`
-		INSERT INTO nodes (id, machine_id, display_name, agent_version, status, last_seen_at, direct_address, relay_address)
-		VALUES (?, ?, ?, ?, 'online', ?, ?, ?)
+		INSERT INTO nodes (id, machine_id, owner_id, display_name, agent_version, status, last_seen_at, direct_address, relay_address)
+		VALUES (?, ?, ?, ?, ?, 'online', ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
+			owner_id = excluded.owner_id,
 			display_name = excluded.display_name,
 			agent_version = excluded.agent_version,
 			status = 'online',
 			last_seen_at = excluded.last_seen_at,
 			direct_address = excluded.direct_address,
 			relay_address = excluded.relay_address
-	`, nodeID, request.MachineID, request.DisplayName, request.AgentVersion,
+	`, nodeID, request.MachineID, ownerID, request.DisplayName, request.AgentVersion,
 		registeredAt.UTC().Format(time.RFC3339),
 		nullableString(request.DirectAddress), nullableString(request.RelayAddress))
 	if err != nil {
 		return nodeRegistrationResult{}, fmt.Errorf("upsert node: %w", err)
-	}
-
-	// Issue token if none exists.
-	var issuedNodeToken string
-	var existingHash sql.NullString
-	_ = tx.QueryRow("SELECT token_hash FROM node_tokens WHERE node_id = ?", nodeID).Scan(&existingHash)
-
-	if !existingHash.Valid || strings.TrimSpace(existingHash.String) == "" {
-		nodeToken, err := newOpaqueToken()
-		if err != nil {
-			return nodeRegistrationResult{}, err
-		}
-		_, err = tx.Exec(
-			"INSERT OR REPLACE INTO node_tokens (node_id, token_hash) VALUES (?, ?)",
-			nodeID, hashOpaqueToken(nodeToken))
-		if err != nil {
-			return nodeRegistrationResult{}, fmt.Errorf("store node token: %w", err)
-		}
-		issuedNodeToken = nodeToken
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -191,12 +208,11 @@ func (s *sqliteStore) registerNode(request nodeRegistrationRequest, registeredAt
 
 	node, _ := s.nodeByID(nodeID)
 	return nodeRegistrationResult{
-		Node:            node,
-		IssuedNodeToken: issuedNodeToken,
+		Node: node,
 	}, nil
 }
 
-func (s *sqliteStore) upsertExports(nodeID string, request nodeExportsRequest) ([]storageExport, error) {
+func (s *sqliteStore) upsertExports(nodeID string, ownerID string, request nodeExportsRequest) ([]storageExport, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
@@ -205,7 +221,7 @@ func (s *sqliteStore) upsertExports(nodeID string, request nodeExportsRequest) (
 
 	// Verify node exists.
 	var exists bool
-	err = tx.QueryRow("SELECT 1 FROM nodes WHERE id = ?", nodeID).Scan(&exists)
+	err = tx.QueryRow("SELECT 1 FROM nodes WHERE id = ? AND owner_id = ?", nodeID, ownerID).Scan(&exists)
 	if err != nil {
 		return nil, errNodeNotFound
 	}
@@ -238,13 +254,14 @@ func (s *sqliteStore) upsertExports(nodeID string, request nodeExportsRequest) (
 		}
 
 		_, err = tx.Exec(`
-			INSERT INTO exports (id, node_id, label, path, mount_path, capacity_bytes)
-			VALUES (?, ?, ?, ?, ?, ?)
+			INSERT INTO exports (id, node_id, owner_id, label, path, mount_path, capacity_bytes)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET
+				owner_id = excluded.owner_id,
 				label = excluded.label,
 				mount_path = excluded.mount_path,
 				capacity_bytes = excluded.capacity_bytes
-		`, exportID, nodeID, input.Label, input.Path, input.MountPath, nullableInt64(input.CapacityBytes))
+		`, exportID, nodeID, ownerID, input.Label, input.Path, input.MountPath, nullableInt64(input.CapacityBytes))
 		if err != nil {
 			return nil, fmt.Errorf("upsert export %q: %w", input.Path, err)
 		}
@@ -288,10 +305,10 @@ func (s *sqliteStore) upsertExports(nodeID string, request nodeExportsRequest) (
 	return s.listExportsForNode(nodeID), nil
 }
 
-func (s *sqliteStore) recordHeartbeat(nodeID string, request nodeHeartbeatRequest) error {
+func (s *sqliteStore) recordHeartbeat(nodeID string, ownerID string, request nodeHeartbeatRequest) error {
 	result, err := s.db.Exec(
-		"UPDATE nodes SET status = ?, last_seen_at = ? WHERE id = ?",
-		request.Status, request.LastSeenAt, nodeID)
+		"UPDATE nodes SET status = ?, last_seen_at = ? WHERE id = ? AND owner_id = ?",
+		request.Status, request.LastSeenAt, nodeID, ownerID)
 	if err != nil {
 		return fmt.Errorf("update heartbeat: %w", err)
 	}
@@ -302,8 +319,8 @@ func (s *sqliteStore) recordHeartbeat(nodeID string, request nodeHeartbeatReques
 	return nil
 }
 
-func (s *sqliteStore) listExports() []storageExport {
-	rows, err := s.db.Query("SELECT id, node_id, label, path, mount_path, capacity_bytes FROM exports ORDER BY id")
+func (s *sqliteStore) listExports(ownerID string) []storageExport {
+	rows, err := s.db.Query("SELECT id, node_id, owner_id, label, path, mount_path, capacity_bytes FROM exports WHERE owner_id = ? ORDER BY id", ownerID)
 	if err != nil {
 		return nil
 	}
@@ -330,7 +347,7 @@ func (s *sqliteStore) listExports() []storageExport {
 }
 
 func (s *sqliteStore) listExportsForNode(nodeID string) []storageExport {
-	rows, err := s.db.Query("SELECT id, node_id, label, path, mount_path, capacity_bytes FROM exports WHERE node_id = ? ORDER BY id", nodeID)
+	rows, err := s.db.Query("SELECT id, node_id, owner_id, label, path, mount_path, capacity_bytes FROM exports WHERE node_id = ? ORDER BY id", nodeID)
 	if err != nil {
 		return nil
 	}
@@ -356,14 +373,18 @@ func (s *sqliteStore) listExportsForNode(nodeID string) []storageExport {
 	return exports
 }
 
-func (s *sqliteStore) exportContext(exportID string) (exportContext, bool) {
+func (s *sqliteStore) exportContext(exportID string, ownerID string) (exportContext, bool) {
 	var e storageExport
 	var capacityBytes sql.NullInt64
+	var exportOwnerID sql.NullString
 	err := s.db.QueryRow(
-		"SELECT id, node_id, label, path, mount_path, capacity_bytes FROM exports WHERE id = ?",
-		exportID).Scan(&e.ID, &e.NasNodeID, &e.Label, &e.Path, &e.MountPath, &capacityBytes)
+		"SELECT id, node_id, owner_id, label, path, mount_path, capacity_bytes FROM exports WHERE id = ? AND owner_id = ?",
+		exportID, ownerID).Scan(&e.ID, &e.NasNodeID, &exportOwnerID, &e.Label, &e.Path, &e.MountPath, &capacityBytes)
 	if err != nil {
 		return exportContext{}, false
+	}
+	if exportOwnerID.Valid {
+		e.OwnerID = exportOwnerID.String
 	}
 	if capacityBytes.Valid {
 		e.CapacityBytes = &capacityBytes.Int64
@@ -383,11 +404,15 @@ func (s *sqliteStore) nodeByID(nodeID string) (nasNode, bool) {
 	var n nasNode
 	var directAddr, relayAddr sql.NullString
 	var lastSeenAt sql.NullString
+	var ownerID sql.NullString
 	err := s.db.QueryRow(
-		"SELECT id, machine_id, display_name, agent_version, status, last_seen_at, direct_address, relay_address FROM nodes WHERE id = ?",
-		nodeID).Scan(&n.ID, &n.MachineID, &n.DisplayName, &n.AgentVersion, &n.Status, &lastSeenAt, &directAddr, &relayAddr)
+		"SELECT id, machine_id, owner_id, display_name, agent_version, status, last_seen_at, direct_address, relay_address FROM nodes WHERE id = ?",
+		nodeID).Scan(&n.ID, &n.MachineID, &ownerID, &n.DisplayName, &n.AgentVersion, &n.Status, &lastSeenAt, &directAddr, &relayAddr)
 	if err != nil {
 		return nasNode{}, false
+	}
+	if ownerID.Valid {
+		n.OwnerID = ownerID.String
 	}
 	if lastSeenAt.Valid {
 		n.LastSeenAt = lastSeenAt.String
@@ -442,8 +467,12 @@ func (s *sqliteStore) nodeAuthByID(nodeID string) (nodeAuthState, bool) {
 func (s *sqliteStore) scanExport(rows *sql.Rows) storageExport {
 	var e storageExport
 	var capacityBytes sql.NullInt64
-	if err := rows.Scan(&e.ID, &e.NasNodeID, &e.Label, &e.Path, &e.MountPath, &capacityBytes); err != nil {
+	var ownerID sql.NullString
+	if err := rows.Scan(&e.ID, &e.NasNodeID, &ownerID, &e.Label, &e.Path, &e.MountPath, &capacityBytes); err != nil {
 		return storageExport{}
+	}
+	if ownerID.Valid {
+		e.OwnerID = ownerID.String
 	}
 	if capacityBytes.Valid {
 		e.CapacityBytes = &capacityBytes.Int64
