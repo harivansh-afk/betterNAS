@@ -61,3 +61,7 @@
 - Keep the implementation as simple as possible.
 - Do not over-engineer the auth or distribution model for v1.
 - Prefer the smallest change set that makes the product usable and distributable.
+
+## Live operations
+
+- If modifying the live Netcup deployment, only stop the `betternas` node process unless the user explicitly asks to modify the deployed backend service.
