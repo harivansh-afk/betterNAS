@@ -11,27 +11,11 @@ const README_LINES = [
   { tag: "h1", text: "betterNAS" },
   {
     tag: "p",
-    text: "betterNAS is a hosted control plane with a user-run node agent.",
+    text: "Mount VMs and remote filesystems on your Mac as native Finder volumes. No special client, no syncing - just your files, where you expect them.",
   },
   {
     tag: "p",
-    text: "The control plane owns user auth, node enrollment, heartbeats, export state, and mount issuance.",
-  },
-  {
-    tag: "p",
-    text: "The node agent runs on the machine that owns the files and serves them over WebDAV.",
-  },
-  {
-    tag: "p",
-    text: "The web app reads from the control plane and shows nodes, exports, and mount details.",
-  },
-  {
-    tag: "p",
-    text: "Finder mounts the export from the node's public WebDAV URL using the same betterNAS username and password.",
-  },
-  {
-    tag: "p",
-    text: "File traffic goes directly between the client and the node, not through the control plane.",
+    text: "Soon: a unified layer across your phone, computer, and AI agents. A safe, modular backup of your filesystem that you can use natively - and a way to deploy agents on your own infrastructure without giving up control.",
   },
 ] as const;
 

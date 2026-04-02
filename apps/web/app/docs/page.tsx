@@ -62,10 +62,24 @@ export default function DocsPage() {
               Sign in
             </Link>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <h1 className="text-2xl font-semibold tracking-tight">
-              Getting started
+              betterNAS
             </h1>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Mount VMs and remote filesystems on your Mac as native Finder
+              volumes. No special client, no syncing - just your files, where
+              you expect them.
+            </p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Soon: a unified layer across your phone, computer, and AI agents.
+              A safe, modular backup of your filesystem that you can use
+              natively - and a way to deploy agents on your own infrastructure
+              without giving up control.
+            </p>
+            <h2 className="mt-4 text-lg font-semibold tracking-tight">
+              Getting started
+            </h2>
             <p className="text-sm leading-relaxed text-muted-foreground">
               One account works everywhere: the web app, the node agent, and
               Finder. Set up the node, confirm it is online, then mount your
