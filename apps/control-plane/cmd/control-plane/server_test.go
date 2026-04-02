@@ -162,8 +162,8 @@ func TestControlPlaneRegistrationProfilesAndHeartbeat(t *testing.T) {
 	if mount.DisplayName != "Photos" {
 		t.Fatalf("expected mount display name Photos, got %q", mount.DisplayName)
 	}
-	if mount.MountURL != "http://nas.local:8090/dav/" {
-		t.Fatalf("expected mount URL %q, got %q", "http://nas.local:8090/dav/", mount.MountURL)
+	if mount.MountURL != "http://nas.local:8090/dav/fixture/" {
+		t.Fatalf("expected mount URL %q, got %q", "http://nas.local:8090/dav/fixture/", mount.MountURL)
 	}
 	if mount.Readonly {
 		t.Fatal("expected mount profile to be read-write")
@@ -415,11 +415,11 @@ func TestControlPlaneProfilesRemainExportSpecificForConfiguredMountPaths(t *test
 	if docsMount.MountURL == mediaMount.MountURL {
 		t.Fatalf("expected distinct mount URLs for configured export paths, got %q", docsMount.MountURL)
 	}
-	if docsMount.MountURL != "http://nas.local:8090/dav/exports/docs/" {
-		t.Fatalf("expected docs mount URL %q, got %q", "http://nas.local:8090/dav/exports/docs/", docsMount.MountURL)
+	if docsMount.MountURL != "http://nas.local:8090/dav/exports/docs/fixture/" {
+		t.Fatalf("expected docs mount URL %q, got %q", "http://nas.local:8090/dav/exports/docs/fixture/", docsMount.MountURL)
 	}
-	if mediaMount.MountURL != "http://nas.local:8090/dav/exports/media/" {
-		t.Fatalf("expected media mount URL %q, got %q", "http://nas.local:8090/dav/exports/media/", mediaMount.MountURL)
+	if mediaMount.MountURL != "http://nas.local:8090/dav/exports/media/fixture/" {
+		t.Fatalf("expected media mount URL %q, got %q", "http://nas.local:8090/dav/exports/media/fixture/", mediaMount.MountURL)
 	}
 
 	docsCloud := postJSONAuth[cloudProfile](t, server.Client(), testClientToken, server.URL+"/api/v1/cloud-profiles/issue", cloudProfileRequest{
@@ -469,8 +469,8 @@ func TestControlPlaneMountProfilesUseRelayAndPreserveBasePath(t *testing.T) {
 	})
 
 	mount := postJSONAuth[mountProfile](t, server.Client(), testClientToken, server.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{ExportID: "dev-export"})
-	if mount.MountURL != "https://nas.example.test/control/dav/relay/" {
-		t.Fatalf("expected relay mount URL %q, got %q", "https://nas.example.test/control/dav/relay/", mount.MountURL)
+	if mount.MountURL != "https://nas.example.test/control/dav/relay/fixture/" {
+		t.Fatalf("expected relay mount URL %q, got %q", "https://nas.example.test/control/dav/relay/fixture/", mount.MountURL)
 	}
 
 	registration = registerNode(t, server.Client(), server.URL+"/api/v1/nodes/register", testNodeBootstrapToken, nodeRegistrationRequest{
@@ -648,8 +648,8 @@ func TestControlPlanePersistsRegistryAcrossAppRestart(t *testing.T) {
 	}
 
 	mount := postJSONAuth[mountProfile](t, secondServer.Client(), testClientToken, secondServer.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{ExportID: exports[0].ID})
-	if mount.MountURL != "http://nas.local:8090/dav/persisted/" {
-		t.Fatalf("expected persisted mount URL %q, got %q", "http://nas.local:8090/dav/persisted/", mount.MountURL)
+	if mount.MountURL != "http://nas.local:8090/dav/persisted/fixture/" {
+		t.Fatalf("expected persisted mount URL %q, got %q", "http://nas.local:8090/dav/persisted/fixture/", mount.MountURL)
 	}
 
 	reRegistration := registerNode(t, secondServer.Client(), secondServer.URL+"/api/v1/nodes/register", registration.NodeToken, nodeRegistrationRequest{

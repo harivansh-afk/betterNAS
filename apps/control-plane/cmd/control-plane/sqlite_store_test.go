@@ -102,8 +102,8 @@ func TestSQLiteRegistrationAndExports(t *testing.T) {
 	}
 
 	mount := postJSONAuth[mountProfile](t, server.Client(), testClientToken, server.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{ExportID: "dev-export"})
-	if mount.MountURL != "http://nas.local:8090/dav/docs/" {
-		t.Fatalf("expected mount URL %q, got %q", "http://nas.local:8090/dav/docs/", mount.MountURL)
+	if mount.MountURL != "http://nas.local:8090/dav/docs/fixture/" {
+		t.Fatalf("expected mount URL %q, got %q", "http://nas.local:8090/dav/docs/fixture/", mount.MountURL)
 	}
 }
 

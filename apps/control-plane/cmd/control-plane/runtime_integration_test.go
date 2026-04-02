@@ -56,8 +56,9 @@ func TestControlPlaneBinaryMountLoopIntegration(t *testing.T) {
 	mount := postJSONAuth[mountProfile](t, client, controlPlane.sessionToken, controlPlane.baseURL+"/api/v1/mount-profiles/issue", mountProfileRequest{
 		ExportID: export.ID,
 	})
-	if mount.MountURL != nodeAgent.baseURL+defaultWebDAVPath {
-		t.Fatalf("expected runtime mount URL %q, got %q", nodeAgent.baseURL+defaultWebDAVPath, mount.MountURL)
+	expectedMountURL := nodeAgent.baseURL + defaultWebDAVPath + runtimeUsername + "/"
+	if mount.MountURL != expectedMountURL {
+		t.Fatalf("expected runtime mount URL %q, got %q", expectedMountURL, mount.MountURL)
 	}
 	if mount.Credential.Mode != mountCredentialModeBasicAuth {
 		t.Fatalf("expected mount credential mode %q, got %q", mountCredentialModeBasicAuth, mount.Credential.Mode)
@@ -103,11 +104,13 @@ func TestControlPlaneBinaryMultiExportProfilesStayDistinct(t *testing.T) {
 	if firstMount.MountURL == secondMount.MountURL {
 		t.Fatalf("expected distinct runtime mount URLs, got %q", firstMount.MountURL)
 	}
-	if firstMount.MountURL != nodeAgent.baseURL+firstMountPath {
-		t.Fatalf("expected first runtime mount URL %q, got %q", nodeAgent.baseURL+firstMountPath, firstMount.MountURL)
+	expectedFirstMountURL := nodeAgent.baseURL + firstMountPath + runtimeUsername + "/"
+	expectedSecondMountURL := nodeAgent.baseURL + secondMountPath + runtimeUsername + "/"
+	if firstMount.MountURL != expectedFirstMountURL {
+		t.Fatalf("expected first runtime mount URL %q, got %q", expectedFirstMountURL, firstMount.MountURL)
 	}
-	if secondMount.MountURL != nodeAgent.baseURL+secondMountPath {
-		t.Fatalf("expected second runtime mount URL %q, got %q", nodeAgent.baseURL+secondMountPath, secondMount.MountURL)
+	if secondMount.MountURL != expectedSecondMountURL {
+		t.Fatalf("expected second runtime mount URL %q, got %q", expectedSecondMountURL, secondMount.MountURL)
 	}
 
 	assertHTTPStatusWithBasicAuth(t, client, "PROPFIND", firstMount.MountURL, controlPlane.username, controlPlane.password, http.StatusMultiStatus)

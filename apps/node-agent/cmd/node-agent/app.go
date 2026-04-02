@@ -234,12 +234,24 @@ func (a *app) handler() http.Handler {
 	for _, mount := range a.exportMounts {
 		mountPathPrefix := strings.TrimSuffix(mount.mountPath, "/")
 		fs := webdav.Dir(mount.exportPath)
+		lockSystem := webdav.NewMemLS()
 		dav := &webdav.Handler{
 			Prefix:     mountPathPrefix,
 			FileSystem: fs,
-			LockSystem: webdav.NewMemLS(),
+			LockSystem: lockSystem,
 		}
 		mux.Handle(mount.mountPath, a.requireDAVAuth(mount, finderCompatible(dav, fs, mountPathPrefix)))
+
+		// Register a username-scoped handler at {mountPath}{username}/ so
+		// Finder shows the username as the volume name in the sidebar.
+		userScopedPath := mount.mountPath + a.authUsername + "/"
+		userScopedPrefix := strings.TrimSuffix(userScopedPath, "/")
+		userDav := &webdav.Handler{
+			Prefix:     userScopedPrefix,
+			FileSystem: fs,
+			LockSystem: lockSystem,
+		}
+		mux.Handle(userScopedPath, a.requireDAVAuth(mount, finderCompatible(userDav, fs, userScopedPrefix)))
 	}
 
 	return mux

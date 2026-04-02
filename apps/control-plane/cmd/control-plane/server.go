@@ -218,7 +218,7 @@ func (a *app) handleMountProfileIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mountURL, err := buildMountURL(context)
+	mountURL, err := buildMountURL(context, currentUser.Username)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
@@ -720,13 +720,17 @@ func hasConfiguredNextcloudBaseURL(baseURL string) bool {
 	return err == nil
 }
 
-func buildMountURL(context exportContext) (string, error) {
+func buildMountURL(context exportContext, username string) (string, error) {
 	address, ok := firstAddress(context.node.DirectAddress, context.node.RelayAddress)
 	if !ok {
 		return "", errMountTargetUnavailable
 	}
 
-	mountURL, err := buildAbsoluteHTTPURLWithPath(address, mountProfilePathForExport(context.export.MountPath))
+	basePath := mountProfilePathForExport(context.export.MountPath)
+	// Append the username so Finder uses it as the volume name in the sidebar.
+	userScopedPath := path.Join(basePath, username) + "/"
+
+	mountURL, err := buildAbsoluteHTTPURLWithPath(address, userScopedPath)
 	if err != nil {
 		return "", errMountTargetUnavailable
 	}
