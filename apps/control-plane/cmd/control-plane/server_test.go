@@ -494,6 +494,69 @@ func TestControlPlaneMountProfilesUseRelayAndPreserveBasePath(t *testing.T) {
 	postJSONAuthStatus(t, server.Client(), testClientToken, server.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{ExportID: "dev-export-2"}, http.StatusServiceUnavailable)
 }
 
+func TestControlPlaneOfflineNodesAreListedButHiddenFromMountableExports(t *testing.T) {
+	t.Parallel()
+
+	app, server := newTestControlPlaneServer(t, appConfig{
+		version:              "test-version",
+		nodeOfflineThreshold: time.Minute,
+	})
+	defer server.Close()
+
+	directAddress := "http://nas.local:8090"
+	registration := registerNode(t, server.Client(), server.URL+"/api/v1/nodes/register", testNodeBootstrapToken, nodeRegistrationRequest{
+		MachineID:     "machine-offline-filter",
+		DisplayName:   "Offline Filter NAS",
+		AgentVersion:  "1.2.3",
+		DirectAddress: &directAddress,
+		RelayAddress:  nil,
+	})
+	syncNodeExports(t, server.Client(), registration.NodeToken, server.URL+"/api/v1/nodes/"+registration.Node.ID+"/exports", nodeExportsRequest{
+		Exports: []storageExportInput{{
+			Label:         "Docs",
+			Path:          "/srv/docs",
+			MountPath:     "/dav/",
+			Protocols:     []string{"webdav"},
+			CapacityBytes: nil,
+			Tags:          []string{},
+		}},
+	})
+
+	initialNodes := getJSONAuth[[]nasNode](t, server.Client(), testClientToken, server.URL+"/api/v1/nodes")
+	if len(initialNodes) != 1 {
+		t.Fatalf("expected 1 node before staleness, got %d", len(initialNodes))
+	}
+	if initialNodes[0].Status != "online" {
+		t.Fatalf("expected node to start online, got %q", initialNodes[0].Status)
+	}
+
+	initialExports := getJSONAuth[[]storageExport](t, server.Client(), testClientToken, server.URL+"/api/v1/exports")
+	if len(initialExports) != 1 {
+		t.Fatalf("expected 1 connected export before staleness, got %d", len(initialExports))
+	}
+
+	app.now = func() time.Time {
+		return testControlPlaneNow.Add(2 * time.Minute)
+	}
+
+	nodes := getJSONAuth[[]nasNode](t, server.Client(), testClientToken, server.URL+"/api/v1/nodes")
+	if len(nodes) != 1 {
+		t.Fatalf("expected 1 node after staleness, got %d", len(nodes))
+	}
+	if nodes[0].Status != "offline" {
+		t.Fatalf("expected stale node to be offline, got %q", nodes[0].Status)
+	}
+
+	exports := getJSONAuth[[]storageExport](t, server.Client(), testClientToken, server.URL+"/api/v1/exports")
+	if len(exports) != 0 {
+		t.Fatalf("expected stale node exports to be hidden, got %d", len(exports))
+	}
+
+	postJSONAuthStatus(t, server.Client(), testClientToken, server.URL+"/api/v1/mount-profiles/issue", mountProfileRequest{
+		ExportID: "dev-export",
+	}, http.StatusServiceUnavailable)
+}
+
 func TestControlPlaneCloudProfilesRequireConfiguredBaseURLAndExistingExport(t *testing.T) {
 	t.Parallel()
 
@@ -745,6 +808,8 @@ func TestControlPlaneRejectsInvalidRequestsAndEnforcesAuth(t *testing.T) {
 		LastSeenAt: "2025-01-02T03:04:05Z",
 	}, http.StatusNotFound)
 
+	getStatusWithAuth(t, server.Client(), "", server.URL+"/api/v1/nodes", http.StatusUnauthorized)
+	getStatusWithAuth(t, server.Client(), "wrong-client-token", server.URL+"/api/v1/nodes", http.StatusUnauthorized)
 	getStatusWithAuth(t, server.Client(), "", server.URL+"/api/v1/exports", http.StatusUnauthorized)
 	getStatusWithAuth(t, server.Client(), "wrong-client-token", server.URL+"/api/v1/exports", http.StatusUnauthorized)
 
