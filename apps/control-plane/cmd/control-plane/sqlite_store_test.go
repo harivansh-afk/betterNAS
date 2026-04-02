@@ -18,24 +18,13 @@ func newTestSQLiteApp(t *testing.T, config appConfig) (*app, *httptest.Server) {
 	if config.version == "" {
 		config.version = "test-version"
 	}
-	if config.clientToken == "" {
-		config.clientToken = testClientToken
-	}
-	if config.nodeBootstrapToken == "" {
-		config.nodeBootstrapToken = testNodeBootstrapToken
-	}
-	if config.davAuthSecret == "" {
-		config.davAuthSecret = "test-dav-auth-secret"
-	}
-	if config.davCredentialTTL == 0 {
-		config.davCredentialTTL = time.Hour
-	}
 
 	app, err := newApp(config, testControlPlaneNow)
 	if err != nil {
 		t.Fatalf("new app: %v", err)
 	}
 	app.now = func() time.Time { return testControlPlaneNow }
+	seedDefaultSessionUser(t, app)
 
 	server := httptest.NewServer(app.handler())
 	return app, server
@@ -79,7 +68,7 @@ func TestSQLiteRegistrationAndExports(t *testing.T) {
 		RelayAddress:  nil,
 	})
 	if registration.NodeToken == "" {
-		t.Fatal("expected node registration to return a node token")
+		t.Fatal("expected node registration to preserve the session token")
 	}
 	if registration.Node.ID != "dev-node" {
 		t.Fatalf("expected node ID %q, got %q", "dev-node", registration.Node.ID)
@@ -142,8 +131,8 @@ func TestSQLiteReRegistrationKeepsNodeID(t *testing.T) {
 	if second.Node.ID != first.Node.ID {
 		t.Fatalf("expected re-registration to keep node ID %q, got %q", first.Node.ID, second.Node.ID)
 	}
-	if second.NodeToken != "" {
-		t.Fatalf("expected re-registration to not issue new token, got %q", second.NodeToken)
+	if second.NodeToken != first.NodeToken {
+		t.Fatalf("expected re-registration to keep the existing session token %q, got %q", first.NodeToken, second.NodeToken)
 	}
 	if second.Node.DisplayName != "NAS Updated" {
 		t.Fatalf("expected updated display name, got %q", second.Node.DisplayName)

@@ -31,8 +31,7 @@ type memoryStore struct {
 }
 
 type nodeRegistrationResult struct {
-	Node            nasNode
-	IssuedNodeToken string
+	Node nasNode
 }
 
 type nodeAuthState struct {
@@ -153,12 +152,12 @@ func cloneStoreState(state storeState) storeState {
 	return cloned
 }
 
-func (s *memoryStore) registerNode(request nodeRegistrationRequest, registeredAt time.Time) (nodeRegistrationResult, error) {
+func (s *memoryStore) registerNode(ownerID string, request nodeRegistrationRequest, registeredAt time.Time) (nodeRegistrationResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	nextState := cloneStoreState(s.state)
-	result, err := registerNodeInState(&nextState, request, registeredAt)
+	result, err := registerNodeInState(&nextState, ownerID, request, registeredAt)
 	if err != nil {
 		return nodeRegistrationResult{}, err
 	}
@@ -170,21 +169,14 @@ func (s *memoryStore) registerNode(request nodeRegistrationRequest, registeredAt
 	return result, nil
 }
 
-func registerNodeInState(state *storeState, request nodeRegistrationRequest, registeredAt time.Time) (nodeRegistrationResult, error) {
+func registerNodeInState(state *storeState, ownerID string, request nodeRegistrationRequest, registeredAt time.Time) (nodeRegistrationResult, error) {
 	nodeID, ok := state.NodeIDByMachineID[request.MachineID]
 	if !ok {
 		nodeID = nextNodeID(state)
 		state.NodeIDByMachineID[request.MachineID] = nodeID
 	}
-
-	issuedNodeToken := ""
-	if stringsTrimmedEmpty(state.NodeTokenHashByID[nodeID]) {
-		nodeToken, err := newOpaqueToken()
-		if err != nil {
-			return nodeRegistrationResult{}, err
-		}
-		state.NodeTokenHashByID[nodeID] = hashOpaqueToken(nodeToken)
-		issuedNodeToken = nodeToken
+	if existingNode, exists := state.NodesByID[nodeID]; exists && existingNode.OwnerID != "" && existingNode.OwnerID != ownerID {
+		return nodeRegistrationResult{}, errNodeOwnedByAnotherUser
 	}
 
 	node := nasNode{
@@ -196,21 +188,21 @@ func registerNodeInState(state *storeState, request nodeRegistrationRequest, reg
 		LastSeenAt:    registeredAt.UTC().Format(time.RFC3339),
 		DirectAddress: copyStringPointer(request.DirectAddress),
 		RelayAddress:  copyStringPointer(request.RelayAddress),
+		OwnerID:       ownerID,
 	}
 
 	state.NodesByID[nodeID] = node
 	return nodeRegistrationResult{
-		Node:            node,
-		IssuedNodeToken: issuedNodeToken,
+		Node: node,
 	}, nil
 }
 
-func (s *memoryStore) upsertExports(nodeID string, request nodeExportsRequest) ([]storageExport, error) {
+func (s *memoryStore) upsertExports(nodeID string, ownerID string, request nodeExportsRequest) ([]storageExport, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	nextState := cloneStoreState(s.state)
-	exports, err := upsertExportsInState(&nextState, nodeID, request.Exports)
+	exports, err := upsertExportsInState(&nextState, nodeID, ownerID, request.Exports)
 	if err != nil {
 		return nil, err
 	}
@@ -222,8 +214,9 @@ func (s *memoryStore) upsertExports(nodeID string, request nodeExportsRequest) (
 	return exports, nil
 }
 
-func upsertExportsInState(state *storeState, nodeID string, exports []storageExportInput) ([]storageExport, error) {
-	if _, ok := state.NodesByID[nodeID]; !ok {
+func upsertExportsInState(state *storeState, nodeID string, ownerID string, exports []storageExportInput) ([]storageExport, error) {
+	node, ok := state.NodesByID[nodeID]
+	if !ok || node.OwnerID != ownerID {
 		return nil, errNodeNotFound
 	}
 
@@ -250,6 +243,7 @@ func upsertExportsInState(state *storeState, nodeID string, exports []storageExp
 			Protocols:     copyStringSlice(export.Protocols),
 			CapacityBytes: copyInt64Pointer(export.CapacityBytes),
 			Tags:          copyStringSlice(export.Tags),
+			OwnerID:       ownerID,
 		}
 		keepPaths[export.Path] = struct{}{}
 	}
@@ -278,12 +272,12 @@ func upsertExportsInState(state *storeState, nodeID string, exports []storageExp
 	return nodeExports, nil
 }
 
-func (s *memoryStore) recordHeartbeat(nodeID string, request nodeHeartbeatRequest) error {
+func (s *memoryStore) recordHeartbeat(nodeID string, ownerID string, request nodeHeartbeatRequest) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	nextState := cloneStoreState(s.state)
-	if err := recordHeartbeatInState(&nextState, nodeID, request); err != nil {
+	if err := recordHeartbeatInState(&nextState, nodeID, ownerID, request); err != nil {
 		return err
 	}
 	if err := s.persistLocked(nextState); err != nil {
@@ -294,9 +288,9 @@ func (s *memoryStore) recordHeartbeat(nodeID string, request nodeHeartbeatReques
 	return nil
 }
 
-func recordHeartbeatInState(state *storeState, nodeID string, request nodeHeartbeatRequest) error {
+func recordHeartbeatInState(state *storeState, nodeID string, ownerID string, request nodeHeartbeatRequest) error {
 	node, ok := state.NodesByID[nodeID]
-	if !ok {
+	if !ok || node.OwnerID != ownerID {
 		return errNodeNotFound
 	}
 
@@ -307,12 +301,15 @@ func recordHeartbeatInState(state *storeState, nodeID string, request nodeHeartb
 	return nil
 }
 
-func (s *memoryStore) listExports() []storageExport {
+func (s *memoryStore) listExports(ownerID string) []storageExport {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	exports := make([]storageExport, 0, len(s.state.ExportsByID))
 	for _, export := range s.state.ExportsByID {
+		if export.OwnerID != ownerID {
+			continue
+		}
 		exports = append(exports, copyStorageExport(export))
 	}
 
@@ -323,17 +320,17 @@ func (s *memoryStore) listExports() []storageExport {
 	return exports
 }
 
-func (s *memoryStore) exportContext(exportID string) (exportContext, bool) {
+func (s *memoryStore) exportContext(exportID string, ownerID string) (exportContext, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	export, ok := s.state.ExportsByID[exportID]
-	if !ok {
+	if !ok || export.OwnerID != ownerID {
 		return exportContext{}, false
 	}
 
 	node, ok := s.state.NodesByID[export.NasNodeID]
-	if !ok {
+	if !ok || node.OwnerID != ownerID {
 		return exportContext{}, false
 	}
 
@@ -468,6 +465,7 @@ func copyNasNode(node nasNode) nasNode {
 		LastSeenAt:    node.LastSeenAt,
 		DirectAddress: copyStringPointer(node.DirectAddress),
 		RelayAddress:  copyStringPointer(node.RelayAddress),
+		OwnerID:       node.OwnerID,
 	}
 }
 
@@ -481,6 +479,7 @@ func copyStorageExport(export storageExport) storageExport {
 		Protocols:     copyStringSlice(export.Protocols),
 		CapacityBytes: copyInt64Pointer(export.CapacityBytes),
 		Tags:          copyStringSlice(export.Tags),
+		OwnerID:       export.OwnerID,
 	}
 }
 

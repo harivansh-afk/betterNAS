@@ -44,3 +44,20 @@
 
 - Keep `node-service` limited to the WebDAV mount surface.
 - Route admin and control actions through `control-server`, not directly from browsers to `node-service`.
+
+## User-scoped auth requirements
+
+- Remove the bootstrap token flow for v1.
+- Use a single user-provided username and password across the entire stack:
+  - `apps/node-agent` authenticates with the user's username and password from environment variables
+  - web app sessions authenticate with the same username and password
+  - WebDAV and Finder authentication use the same username and password
+- Do not generate separate WebDAV credentials for users.
+- Nodes and exports must be owned by users and scoped so authenticated users can only view and mount their own resources.
+- Package the node binary for user download and distribution.
+
+## V1 simplicity
+
+- Keep the implementation as simple as possible.
+- Do not over-engineer the auth or distribution model for v1.
+- Prefer the smallest change set that makes the product usable and distributable.

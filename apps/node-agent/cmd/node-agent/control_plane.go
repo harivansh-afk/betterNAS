@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-const controlPlaneNodeTokenHeader = "X-BetterNAS-Node-Token"
-
 type bootstrapResult struct {
 	nodeID string
 }
@@ -30,6 +28,15 @@ type nodeRegistrationRequest struct {
 
 type nodeRegistrationResponse struct {
 	ID string `json:"id"`
+}
+
+type authLoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type authLoginResponse struct {
+	Token string `json:"token"`
 }
 
 type nodeExportsRequest struct {
@@ -57,38 +64,28 @@ func bootstrapNodeAgentFromEnv(exportPaths []string) (bootstrapResult, error) {
 		return bootstrapResult{}, err
 	}
 
-	bootstrapToken, err := requiredEnv("BETTERNAS_CONTROL_PLANE_NODE_BOOTSTRAP_TOKEN")
+	username, err := requiredEnv("BETTERNAS_USERNAME")
+	if err != nil {
+		return bootstrapResult{}, err
+	}
+	password, err := requiredEnv("BETTERNAS_PASSWORD")
 	if err != nil {
 		return bootstrapResult{}, err
 	}
 
-	nodeTokenPath, err := requiredEnv("BETTERNAS_NODE_TOKEN_PATH")
-	if err != nil {
-		return bootstrapResult{}, err
-	}
-
-	machineID, err := requiredEnv("BETTERNAS_NODE_MACHINE_ID")
-	if err != nil {
-		return bootstrapResult{}, err
-	}
-
-	displayName := strings.TrimSpace(env("BETTERNAS_NODE_DISPLAY_NAME", machineID))
+	machineID := strings.TrimSpace(env("BETTERNAS_NODE_MACHINE_ID", defaultNodeMachineID(username)))
+	displayName := strings.TrimSpace(env("BETTERNAS_NODE_DISPLAY_NAME", defaultNodeDisplayName(machineID)))
 	if displayName == "" {
 		displayName = machineID
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
-	nodeToken, err := readNodeToken(nodeTokenPath)
+	sessionToken, err := loginWithControlPlane(client, controlPlaneURL, username, password)
 	if err != nil {
 		return bootstrapResult{}, err
 	}
 
-	authToken := nodeToken
-	if authToken == "" {
-		authToken = bootstrapToken
-	}
-
-	registration, issuedNodeToken, err := registerNodeWithControlPlane(client, controlPlaneURL, authToken, nodeRegistrationRequest{
+	registration, err := registerNodeWithControlPlane(client, controlPlaneURL, sessionToken, nodeRegistrationRequest{
 		MachineID:     machineID,
 		DisplayName:   displayName,
 		AgentVersion:  env("BETTERNAS_VERSION", "0.1.0-dev"),
@@ -99,40 +96,58 @@ func bootstrapNodeAgentFromEnv(exportPaths []string) (bootstrapResult, error) {
 		return bootstrapResult{}, err
 	}
 
-	if strings.TrimSpace(issuedNodeToken) != "" {
-		if err := writeNodeToken(nodeTokenPath, issuedNodeToken); err != nil {
-			return bootstrapResult{}, err
-		}
-		authToken = issuedNodeToken
-	}
-
-	if err := syncNodeExportsWithControlPlane(client, controlPlaneURL, authToken, registration.ID, buildStorageExportInputs(exportPaths)); err != nil {
+	if err := syncNodeExportsWithControlPlane(client, controlPlaneURL, sessionToken, registration.ID, buildStorageExportInputs(exportPaths)); err != nil {
 		return bootstrapResult{}, err
 	}
-	if err := sendNodeHeartbeat(client, controlPlaneURL, authToken, registration.ID); err != nil {
+	if err := sendNodeHeartbeat(client, controlPlaneURL, sessionToken, registration.ID); err != nil {
 		return bootstrapResult{}, err
 	}
 
 	return bootstrapResult{nodeID: registration.ID}, nil
 }
 
-func registerNodeWithControlPlane(client *http.Client, baseURL string, token string, payload nodeRegistrationRequest) (nodeRegistrationResponse, string, error) {
-	response, err := doControlPlaneJSONRequest(client, http.MethodPost, controlPlaneEndpoint(baseURL, "/api/v1/nodes/register"), token, payload)
+func loginWithControlPlane(client *http.Client, baseURL string, username string, password string) (string, error) {
+	response, err := doControlPlaneJSONRequest(client, http.MethodPost, controlPlaneEndpoint(baseURL, "/api/v1/auth/login"), "", authLoginRequest{
+		Username: username,
+		Password: password,
+	})
 	if err != nil {
-		return nodeRegistrationResponse{}, "", err
+		return "", err
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return nodeRegistrationResponse{}, "", controlPlaneResponseError("register node", response)
+		return "", controlPlaneResponseError("login", response)
+	}
+
+	var auth authLoginResponse
+	if err := json.NewDecoder(response.Body).Decode(&auth); err != nil {
+		return "", fmt.Errorf("decode login response: %w", err)
+	}
+	if strings.TrimSpace(auth.Token) == "" {
+		return "", fmt.Errorf("login: missing session token")
+	}
+
+	return strings.TrimSpace(auth.Token), nil
+}
+
+func registerNodeWithControlPlane(client *http.Client, baseURL string, token string, payload nodeRegistrationRequest) (nodeRegistrationResponse, error) {
+	response, err := doControlPlaneJSONRequest(client, http.MethodPost, controlPlaneEndpoint(baseURL, "/api/v1/nodes/register"), token, payload)
+	if err != nil {
+		return nodeRegistrationResponse{}, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return nodeRegistrationResponse{}, controlPlaneResponseError("register node", response)
 	}
 
 	var registration nodeRegistrationResponse
 	if err := json.NewDecoder(response.Body).Decode(&registration); err != nil {
-		return nodeRegistrationResponse{}, "", fmt.Errorf("decode register node response: %w", err)
+		return nodeRegistrationResponse{}, fmt.Errorf("decode register node response: %w", err)
 	}
 
-	return registration, strings.TrimSpace(response.Header.Get(controlPlaneNodeTokenHeader)), nil
+	return registration, nil
 }
 
 func syncNodeExportsWithControlPlane(client *http.Client, baseURL string, token string, nodeID string, exports []storageExportInput) error {
@@ -181,7 +196,9 @@ func doControlPlaneJSONRequest(client *http.Client, method string, endpoint stri
 		return nil, fmt.Errorf("build %s %s request: %w", method, endpoint, err)
 	}
 	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Authorization", "Bearer "+token)
+	if strings.TrimSpace(token) != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
+	}
 
 	response, err := client.Do(request)
 	if err != nil {
@@ -248,52 +265,20 @@ func optionalEnvPointer(key string) *string {
 	return &value
 }
 
-func readNodeToken(path string) (string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", nil
-		}
-
-		return "", fmt.Errorf("read node token %s: %w", path, err)
+func defaultNodeMachineID(username string) string {
+	hostname, err := os.Hostname()
+	if err != nil || strings.TrimSpace(hostname) == "" {
+		return strings.TrimSpace(username) + "@node"
 	}
 
-	return strings.TrimSpace(string(data)), nil
+	return strings.TrimSpace(username) + "@" + strings.TrimSpace(hostname)
 }
 
-func writeNodeToken(path string, token string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		return fmt.Errorf("create node token directory %s: %w", filepath.Dir(path), err)
+func defaultNodeDisplayName(machineID string) string {
+	_, displayName, ok := strings.Cut(strings.TrimSpace(machineID), "@")
+	if ok && strings.TrimSpace(displayName) != "" {
+		return strings.TrimSpace(displayName)
 	}
 
-	tempFile, err := os.CreateTemp(filepath.Dir(path), ".node-token-*.tmp")
-	if err != nil {
-		return fmt.Errorf("create node token temp file in %s: %w", filepath.Dir(path), err)
-	}
-
-	tempFilePath := tempFile.Name()
-	cleanupTempFile := true
-	defer func() {
-		if cleanupTempFile {
-			_ = os.Remove(tempFilePath)
-		}
-	}()
-
-	if err := tempFile.Chmod(0o600); err != nil {
-		_ = tempFile.Close()
-		return fmt.Errorf("chmod node token temp file %s: %w", tempFilePath, err)
-	}
-	if _, err := tempFile.WriteString(strings.TrimSpace(token) + "\n"); err != nil {
-		_ = tempFile.Close()
-		return fmt.Errorf("write node token temp file %s: %w", tempFilePath, err)
-	}
-	if err := tempFile.Close(); err != nil {
-		return fmt.Errorf("close node token temp file %s: %w", tempFilePath, err)
-	}
-	if err := os.Rename(tempFilePath, path); err != nil {
-		return fmt.Errorf("replace node token %s: %w", path, err)
-	}
-
-	cleanupTempFile = false
-	return nil
+	return strings.TrimSpace(machineID)
 }

@@ -1,0 +1,30 @@
+version: 2
+
+project_name: betternas-node
+
+monorepo:
+  tag_prefix: v
+
+builds:
+  - id: betternas-node
+    main: ./apps/node-agent/cmd/node-agent
+    binary: betternas-node
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: betternas-node
+    builds:
+      - betternas-node
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+changelog:
+  use: git

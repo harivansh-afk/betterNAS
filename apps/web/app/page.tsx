@@ -78,7 +78,9 @@ export default function Home() {
       const profile = await issueMountProfile(exportId);
       setMountProfile(profile);
     } catch (err) {
-      setFeedback(err instanceof Error ? err.message : "Failed to issue mount profile");
+      setFeedback(
+        err instanceof Error ? err.message : "Failed to issue mount profile",
+      );
     }
   }
 
@@ -96,7 +98,7 @@ export default function Home() {
   }
 
   const selectedExport = selectedExportId
-    ? exports.find((e) => e.id === selectedExportId) ?? null
+    ? (exports.find((e) => e.id === selectedExportId) ?? null)
     : null;
 
   return (
@@ -117,11 +119,7 @@ export default function Home() {
                 <span className="text-sm text-muted-foreground">
                   {user.username}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleLogout}
-                >
+                <Button variant="ghost" size="sm" onClick={handleLogout}>
                   <SignOut className="mr-1 size-4" />
                   Sign out
                 </Button>
@@ -138,6 +136,25 @@ export default function Home() {
               {exports.length === 1 ? "1 export" : `${exports.length} exports`}
             </Badge>
           </div>
+
+          {user && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Node agent setup</CardTitle>
+                <CardDescription>
+                  Run the node binary on the machine that owns the files with
+                  the same account credentials you use here and in Finder.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <pre className="overflow-x-auto rounded-xl border bg-muted/40 p-4 text-xs text-foreground">
+                  <code>
+                    {`BETTERNAS_USERNAME=${user.username} BETTERNAS_PASSWORD=... BETTERNAS_EXPORT_PATH=/path/to/export betternas-node`}
+                  </code>
+                </pre>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {feedback !== null && (
@@ -245,8 +262,8 @@ export default function Home() {
               </CardTitle>
               <CardDescription>
                 {selectedExport !== null
-                  ? "Issued WebDAV credentials for Finder."
-                  : "Select an export to issue mount credentials."}
+                  ? "WebDAV mount details for Finder."
+                  : "Select an export to see the mount URL and account login details."}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -254,7 +271,8 @@ export default function Home() {
                 <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed py-10 text-center">
                   <LinkSimple size={32} className="text-muted-foreground/40" />
                   <p className="text-sm text-muted-foreground">
-                    Pick an export to issue WebDAV credentials for Finder.
+                    Pick an export to see the Finder mount URL and the username
+                    to use with your betterNAS account password.
                   </p>
                 </div>
               ) : (
@@ -281,10 +299,16 @@ export default function Home() {
                       label="Username"
                       value={mountProfile.credential.username}
                     />
-                    <CopyField
-                      label="Password"
-                      value={mountProfile.credential.password}
-                    />
+                    <Alert>
+                      <AlertTitle>
+                        Use your betterNAS account password
+                      </AlertTitle>
+                      <AlertDescription>
+                        Enter the same password you use to sign in to betterNAS
+                        and run the node agent. v1 does not issue a separate
+                        WebDAV password.
+                      </AlertDescription>
+                    </Alert>
                   </div>
 
                   <Separator />
@@ -300,10 +324,10 @@ export default function Home() {
                     </div>
                     <div>
                       <dt className="mb-0.5 text-xs uppercase tracking-wide text-muted-foreground">
-                        Expires
+                        Password source
                       </dt>
                       <dd className="text-xs text-foreground">
-                        {mountProfile.credential.expiresAt}
+                        Your betterNAS account password
                       </dd>
                     </div>
                   </dl>
@@ -316,8 +340,8 @@ export default function Home() {
                       {[
                         "Open Finder and choose Go, then Connect to Server.",
                         "Paste the mount URL into the server address field.",
-                        "Enter the issued username and password when prompted.",
-                        "Save to Keychain only if the credential expiry suits your workflow.",
+                        "Enter your betterNAS username and account password when prompted.",
+                        "Save to Keychain only if you want Finder to reuse that same account password.",
                       ].map((step, index) => (
                         <li
                           key={index}

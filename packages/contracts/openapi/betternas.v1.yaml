@@ -22,8 +22,7 @@ paths:
     post:
       operationId: registerNode
       security:
-        - NodeBootstrapToken: []
-        - NodeToken: []
+        - UserSession: []
       requestBody:
         required: true
         content:
@@ -33,11 +32,6 @@ paths:
       responses:
         "200":
           description: Registered node
-          headers:
-            X-BetterNAS-Node-Token:
-              description: Returned when a node is first registered or migrated to node-scoped auth.
-              schema:
-                type: string
           content:
             application/json:
               schema:
@@ -48,7 +42,7 @@ paths:
     post:
       operationId: recordNodeHeartbeat
       security:
-        - NodeToken: []
+        - UserSession: []
       parameters:
         - in: path
           name: nodeId
@@ -70,7 +64,7 @@ paths:
     put:
       operationId: syncNodeExports
       security:
-        - NodeToken: []
+        - UserSession: []
       parameters:
         - in: path
           name: nodeId
@@ -98,7 +92,7 @@ paths:
     get:
       operationId: listExports
       security:
-        - ClientToken: []
+        - UserSession: []
       responses:
         "200":
           description: Export list
@@ -114,7 +108,7 @@ paths:
     post:
       operationId: issueMountProfile
       security:
-        - ClientToken: []
+        - UserSession: []
       requestBody:
         required: true
         content:
@@ -134,7 +128,7 @@ paths:
     post:
       operationId: issueCloudProfile
       security:
-        - ClientToken: []
+        - UserSession: []
       requestBody:
         required: true
         content:
@@ -152,18 +146,10 @@ paths:
           description: Unauthorized
 components:
   securitySchemes:
-    ClientToken:
+    UserSession:
       type: http
       scheme: bearer
-      description: Bearer token required for export listing and profile issuance.
-    NodeBootstrapToken:
-      type: http
-      scheme: bearer
-      description: Bearer token required to register a new node before it receives a node-scoped token.
-    NodeToken:
-      type: http
-      scheme: bearer
-      description: Bearer token scoped to a previously registered node.
+      description: Bearer session token returned by the username and password auth endpoints.
   schemas:
     NasNode:
       type: object

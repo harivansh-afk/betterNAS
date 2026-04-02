@@ -10,9 +10,29 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/runtime-env.sh"
 control_health="$(curl -fsS "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/health")"
 echo "$control_health" | jq -e '.service == "control-plane" and .status == "ok"' >/dev/null
 
+auth_payload="$(jq -nc --arg username "$BETTERNAS_USERNAME" --arg password "$BETTERNAS_PASSWORD" '{username: $username, password: $password}')"
+session_token="$({
+  curl -fsS \
+    -X POST \
+    -H 'Content-Type: application/json' \
+    -d "$auth_payload" \
+    "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/auth/login" \
+    | jq -er '.token'
+} 2>/dev/null || true)"
+if [[ -z "$session_token" ]]; then
+  session_token="$({
+    curl -fsS \
+      -X POST \
+      -H 'Content-Type: application/json' \
+      -d "$auth_payload" \
+      "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/auth/register" \
+      | jq -er '.token'
+  })"
+fi
+
 export_id=""
 for _ in {1..30}; do
-  exports_response="$(curl -fsS -H "Authorization: Bearer ${BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN}" "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/exports")"
+  exports_response="$(curl -fsS -H "Authorization: Bearer ${session_token}" "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/exports")"
   export_id="$({
     echo "$exports_response" | jq -er \
       'map(select(.mountPath == "/dav/")) | .[0].id? // empty'
@@ -32,14 +52,14 @@ mount_profile="$({
   curl -fsS \
     -X POST \
     -H 'Content-Type: application/json' \
-    -H "Authorization: Bearer ${BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN}" \
+    -H "Authorization: Bearer ${session_token}" \
     -d "{\"exportId\":\"${export_id}\"}" \
     "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/mount-profiles/issue"
 })"
 echo "$mount_profile" | jq -e --arg expected "$BETTERNAS_EXAMPLE_MOUNT_URL" '.protocol == "webdav" and .mountUrl == $expected and .credential.mode == "basic-auth"' >/dev/null
 
-BETTERNAS_EXAMPLE_MOUNT_USERNAME="$(echo "$mount_profile" | jq -er '.credential.username')"
-BETTERNAS_EXAMPLE_MOUNT_PASSWORD="$(echo "$mount_profile" | jq -er '.credential.password')"
+BETTERNAS_EXAMPLE_MOUNT_USERNAME="${BETTERNAS_USERNAME}"
+BETTERNAS_EXAMPLE_MOUNT_PASSWORD="${BETTERNAS_PASSWORD}"
 export BETTERNAS_EXAMPLE_MOUNT_USERNAME
 export BETTERNAS_EXAMPLE_MOUNT_PASSWORD
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/verify-webdav"
@@ -48,7 +68,7 @@ cloud_profile="$({
   curl -fsS \
     -X POST \
     -H 'Content-Type: application/json' \
-    -H "Authorization: Bearer ${BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN}" \
+    -H "Authorization: Bearer ${session_token}" \
     -d "{\"userId\":\"integration-user\",\"exportId\":\"${export_id}\",\"provider\":\"nextcloud\"}" \
     "http://localhost:${BETTERNAS_CONTROL_PLANE_PORT}/api/v1/cloud-profiles/issue"
 })"

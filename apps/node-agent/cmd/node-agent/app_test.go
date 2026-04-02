@@ -1,8 +1,6 @@
 package main
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,10 +8,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
-const testDAVAuthSecret = "test-dav-auth-secret"
+const (
+	testUsername = "alice"
+	testPassword = "password123"
+)
 
 func TestSingleExportServesDefaultAndScopedMountPathsWithValidCredentials(t *testing.T) {
 	t.Parallel()
@@ -22,9 +22,9 @@ func TestSingleExportServesDefaultAndScopedMountPathsWithValidCredentials(t *tes
 	writeExportFile(t, exportDir, "README.txt", "single export\n")
 
 	app, err := newApp(appConfig{
-		exportPaths:   []string{exportDir},
-		nodeID:        "node-1",
-		davAuthSecret: testDAVAuthSecret,
+		exportPaths:  []string{exportDir},
+		authUsername: testUsername,
+		authPassword: testPassword,
 	})
 	if err != nil {
 		t.Fatalf("new app: %v", err)
@@ -33,14 +33,12 @@ func TestSingleExportServesDefaultAndScopedMountPathsWithValidCredentials(t *tes
 	server := httptest.NewServer(app.handler())
 	defer server.Close()
 
-	defaultUsername, defaultPassword := issueTestMountCredential(t, "node-1", defaultWebDAVPath, false)
 	scopedMountPath := scopedMountPathForExport(exportDir)
-	scopedUsername, scopedPassword := issueTestMountCredential(t, "node-1", scopedMountPath, false)
 
-	assertHTTPStatusWithBasicAuth(t, server.Client(), "PROPFIND", server.URL+defaultWebDAVPath, defaultUsername, defaultPassword, http.StatusMultiStatus)
-	assertHTTPStatusWithBasicAuth(t, server.Client(), "PROPFIND", server.URL+scopedMountPath, scopedUsername, scopedPassword, http.StatusMultiStatus)
-	assertMountedFileContentsWithBasicAuth(t, server.Client(), server.URL+defaultWebDAVPath+"README.txt", defaultUsername, defaultPassword, "single export\n")
-	assertMountedFileContentsWithBasicAuth(t, server.Client(), server.URL+scopedMountPath+"README.txt", scopedUsername, scopedPassword, "single export\n")
+	assertHTTPStatusWithBasicAuth(t, server.Client(), "PROPFIND", server.URL+defaultWebDAVPath, testUsername, testPassword, http.StatusMultiStatus)
+	assertHTTPStatusWithBasicAuth(t, server.Client(), "PROPFIND", server.URL+scopedMountPath, testUsername, testPassword, http.StatusMultiStatus)
+	assertMountedFileContentsWithBasicAuth(t, server.Client(), server.URL+defaultWebDAVPath+"README.txt", testUsername, testPassword, "single export\n")
+	assertMountedFileContentsWithBasicAuth(t, server.Client(), server.URL+scopedMountPath+"README.txt", testUsername, testPassword, "single export\n")
 }
 
 func TestMultipleExportsServeDistinctScopedMountPathsWithValidCredentials(t *testing.T) {
@@ -52,9 +50,9 @@ func TestMultipleExportsServeDistinctScopedMountPathsWithValidCredentials(t *tes
 	writeExportFile(t, secondExportDir, "README.txt", "second export\n")
 
 	app, err := newApp(appConfig{
-		exportPaths:   []string{firstExportDir, secondExportDir},
-		nodeID:        "node-1",
-		davAuthSecret: testDAVAuthSecret,
+		exportPaths:  []string{firstExportDir, secondExportDir},
+		authUsername: testUsername,
+		authPassword: testPassword,
 	})
 	if err != nil {
 		t.Fatalf("new app: %v", err)
@@ -69,13 +67,10 @@ func TestMultipleExportsServeDistinctScopedMountPathsWithValidCredentials(t *tes
 		t.Fatal("expected distinct mount paths for multiple exports")
 	}
 
-	firstUsername, firstPassword := issueTestMountCredential(t, "node-1", firstMountPath, false)
-	secondUsername, secondPassword := issueTestMountCredential(t, "node-1", secondMountPath, false)
-
-	assertHTTPStatusWithBasicAuth(t, server.Client(), "PROPFIND", server.URL+firstMountPath, firstUsername, firstPassword, http.StatusMultiStatus)
-	assertHTTPStatusWithBasicAuth(t, server.Client(), "PROPFIND", server.URL+secondMountPath, secondUsername, secondPassword, http.StatusMultiStatus)
-	assertMountedFileContentsWithBasicAuth(t, server.Client(), server.URL+firstMountPath+"README.txt", firstUsername, firstPassword, "first export\n")
-	assertMountedFileContentsWithBasicAuth(t, server.Client(), server.URL+secondMountPath+"README.txt", secondUsername, secondPassword, "second export\n")
+	assertHTTPStatusWithBasicAuth(t, server.Client(), "PROPFIND", server.URL+firstMountPath, testUsername, testPassword, http.StatusMultiStatus)
+	assertHTTPStatusWithBasicAuth(t, server.Client(), "PROPFIND", server.URL+secondMountPath, testUsername, testPassword, http.StatusMultiStatus)
+	assertMountedFileContentsWithBasicAuth(t, server.Client(), server.URL+firstMountPath+"README.txt", testUsername, testPassword, "first export\n")
+	assertMountedFileContentsWithBasicAuth(t, server.Client(), server.URL+secondMountPath+"README.txt", testUsername, testPassword, "second export\n")
 
 	response, err := server.Client().Get(server.URL + defaultWebDAVPath)
 	if err != nil {
@@ -87,16 +82,16 @@ func TestMultipleExportsServeDistinctScopedMountPathsWithValidCredentials(t *tes
 	}
 }
 
-func TestDAVAuthRejectsMissingInvalidAndReadonlyCredentials(t *testing.T) {
+func TestDAVAuthRejectsMissingAndInvalidCredentials(t *testing.T) {
 	t.Parallel()
 
 	exportDir := t.TempDir()
-	writeExportFile(t, exportDir, "README.txt", "readonly export\n")
+	writeExportFile(t, exportDir, "README.txt", "mutable export\n")
 
 	app, err := newApp(appConfig{
-		exportPaths:   []string{exportDir},
-		nodeID:        "node-1",
-		davAuthSecret: testDAVAuthSecret,
+		exportPaths:  []string{exportDir},
+		authUsername: testUsername,
+		authPassword: testPassword,
 	})
 	if err != nil {
 		t.Fatalf("new app: %v", err)
@@ -106,27 +101,24 @@ func TestDAVAuthRejectsMissingInvalidAndReadonlyCredentials(t *testing.T) {
 	defer server.Close()
 
 	assertHTTPStatusWithBasicAuth(t, server.Client(), "PROPFIND", server.URL+defaultWebDAVPath, "", "", http.StatusUnauthorized)
+	assertHTTPStatusWithBasicAuth(t, server.Client(), "PROPFIND", server.URL+defaultWebDAVPath, "wrong-user", testPassword, http.StatusUnauthorized)
+	assertHTTPStatusWithBasicAuth(t, server.Client(), "PROPFIND", server.URL+defaultWebDAVPath, testUsername, "wrong-password", http.StatusUnauthorized)
 
-	wrongMountUsername, wrongMountPassword := issueTestMountCredential(t, "node-1", "/dav/wrong/", false)
-	assertHTTPStatusWithBasicAuth(t, server.Client(), "PROPFIND", server.URL+defaultWebDAVPath, wrongMountUsername, wrongMountPassword, http.StatusUnauthorized)
-
-	expiredUsername, expiredPassword := issueExpiredTestMountCredential(t, "node-1", defaultWebDAVPath, false)
-	assertHTTPStatusWithBasicAuth(t, server.Client(), "PROPFIND", server.URL+defaultWebDAVPath, expiredUsername, expiredPassword, http.StatusUnauthorized)
-
-	readonlyUsername, readonlyPassword := issueTestMountCredential(t, "node-1", defaultWebDAVPath, true)
 	request, err := http.NewRequest(http.MethodPut, server.URL+defaultWebDAVPath+"README.txt", strings.NewReader("updated\n"))
 	if err != nil {
 		t.Fatalf("build PUT request: %v", err)
 	}
-	request.SetBasicAuth(readonlyUsername, readonlyPassword)
+	request.SetBasicAuth(testUsername, testPassword)
 	response, err := server.Client().Do(request)
 	if err != nil {
 		t.Fatalf("PUT %s: %v", request.URL.String(), err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusForbidden {
-		t.Fatalf("expected readonly credential to return 403, got %d", response.StatusCode)
+	if response.StatusCode != http.StatusCreated && response.StatusCode != http.StatusNoContent && response.StatusCode != http.StatusOK {
+		t.Fatalf("expected write with valid credentials to succeed, got %d", response.StatusCode)
 	}
+
+	assertMountedFileContentsWithBasicAuth(t, server.Client(), server.URL+defaultWebDAVPath+"README.txt", testUsername, testPassword, "updated\n")
 }
 
 func TestBuildExportMountsRejectsInvalidConfigs(t *testing.T) {
@@ -191,54 +183,6 @@ func assertMountedFileContentsWithBasicAuth(t *testing.T, client *http.Client, e
 	if string(body) != expected {
 		t.Fatalf("expected %s body %q, got %q", endpoint, expected, string(body))
 	}
-}
-
-func issueTestMountCredential(t *testing.T, nodeID string, mountPath string, readonly bool) (string, string) {
-	t.Helper()
-
-	claims := signedMountCredentialClaims{
-		Version:   1,
-		NodeID:    nodeID,
-		MountPath: mountPath,
-		Username:  "mount-test-user",
-		Readonly:  readonly,
-		ExpiresAt: time.Now().UTC().Add(time.Hour).Format(time.RFC3339),
-	}
-	password, err := encodeTestMountCredential(claims)
-	if err != nil {
-		t.Fatalf("issue test mount credential: %v", err)
-	}
-
-	return claims.Username, password
-}
-
-func issueExpiredTestMountCredential(t *testing.T, nodeID string, mountPath string, readonly bool) (string, string) {
-	t.Helper()
-
-	claims := signedMountCredentialClaims{
-		Version:   1,
-		NodeID:    nodeID,
-		MountPath: mountPath,
-		Username:  "mount-expired-user",
-		Readonly:  readonly,
-		ExpiresAt: time.Now().UTC().Add(-time.Minute).Format(time.RFC3339),
-	}
-	password, err := encodeTestMountCredential(claims)
-	if err != nil {
-		t.Fatalf("issue expired test mount credential: %v", err)
-	}
-
-	return claims.Username, password
-}
-
-func encodeTestMountCredential(claims signedMountCredentialClaims) (string, error) {
-	payload, err := json.Marshal(claims)
-	if err != nil {
-		return "", err
-	}
-
-	encodedPayload := base64.RawURLEncoding.EncodeToString(payload)
-	return encodedPayload + "." + signMountCredentialPayload(testDAVAuthSecret, encodedPayload), nil
 }
 
 func writeExportFile(t *testing.T, directory string, name string, contents string) {

@@ -26,6 +26,7 @@ Deploy the betterNAS control-plane as a production service on netty (Netcup VPS)
 - Deployment is declarative via NixOS configuration.nix
 
 ### Verification:
+
 1. `curl https://api.betternas.com/health` returns `ok`
 2. Web UI at `betternas.com` loads, shows login page
 3. User can register, log in, see exports, one-click mount
@@ -57,6 +58,7 @@ Five phases, each independently deployable and testable:
 ## Phase 1: SQLite Store
 
 ### Overview
+
 Replace `memoryStore` (in-memory + JSON file) with a `sqliteStore` using `modernc.org/sqlite` (pure Go, no CGo, `database/sql` compatible). This keeps all existing API behavior identical while switching the persistence layer.
 
 ### Schema
@@ -118,15 +120,19 @@ CREATE TABLE export_tags (
 ### Changes Required
 
 #### 1. Add SQLite dependency
+
 **File**: `apps/control-plane/go.mod`
+
 ```
 go get modernc.org/sqlite
 ```
 
 #### 2. New file: `sqlite_store.go`
+
 **File**: `apps/control-plane/cmd/control-plane/sqlite_store.go`
 
 Implements the same operations as `memoryStore` but backed by SQLite:
+
 - `newSQLiteStore(dbPath string) (*sqliteStore, error)` - opens DB, runs migrations
 - `registerNode(...)` - INSERT/UPDATE node + token hash in a transaction
 - `upsertExports(...)` - DELETE removed exports, UPSERT current ones in a transaction
@@ -138,6 +144,7 @@ Implements the same operations as `memoryStore` but backed by SQLite:
 - `nextOrdinal(name)` - UPDATE ordinals SET value = value + 1 RETURNING value
 
 Key design decisions:
+
 - Use `database/sql` with `modernc.org/sqlite` driver
 - WAL mode enabled at connection: `PRAGMA journal_mode=WAL`
 - Foreign keys enabled: `PRAGMA foreign_keys=ON`
@@ -146,9 +153,11 @@ Key design decisions:
 - No ORM - raw SQL with prepared statements
 
 #### 3. Update `app.go` to use SQLite store
+
 **File**: `apps/control-plane/cmd/control-plane/app.go`
 
 Replace `memoryStore` initialization with `sqliteStore`:
+
 ```go
 // Replace:
 //   store, err := newMemoryStore(statePath)
@@ -159,6 +168,7 @@ Replace `memoryStore` initialization with `sqliteStore`:
 New env var: `BETTERNAS_CONTROL_PLANE_DB_PATH` (default: `/var/lib/betternas/control-plane/betternas.db`)
 
 #### 4. Update `server.go` to use new store interface
+
 **File**: `apps/control-plane/cmd/control-plane/server.go`
 
 The server handlers currently call methods directly on `*memoryStore`. These need to call the equivalent methods on the new store. If the method signatures match, this is a straight swap. If not, introduce a `store` interface that both implement during migration, then delete `memoryStore`.
@@ -166,12 +176,14 @@ The server handlers currently call methods directly on `*memoryStore`. These nee
 ### Success Criteria
 
 #### Automated Verification:
+
 - [ ] `go build ./apps/control-plane/cmd/control-plane/` compiles with `CGO_ENABLED=0`
 - [ ] `go test ./apps/control-plane/cmd/control-plane/ -v` passes all existing tests
 - [ ] New SQLite store tests pass (register node, upsert exports, list exports, auth lookup)
 - [ ] `curl` against a local instance: register node, sync exports, issue mount profile - all return expected responses
 
 #### Manual Verification:
+
 - [ ] Start control-plane locally, SQLite file is created at configured path
 - [ ] Restart control-plane - state persists across restarts
 - [ ] Node-agent can register and sync exports against the SQLite-backed control-plane
@@ -181,6 +193,7 @@ The server handlers currently call methods directly on `*memoryStore`. These nee
 ## Phase 2: User Auth
 
 ### Overview
+
 Add user accounts with username/password (bcrypt) and session tokens stored in SQLite. The session token replaces the static `BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN` for web UI access. Node-agent auth (bootstrap token + node token) is unchanged.
 
 ### Additional Schema
@@ -216,6 +229,7 @@ GET  /api/v1/auth/me          - Return current user info (session validation)
 ### Changes Required
 
 #### 1. New file: `auth.go`
+
 **File**: `apps/control-plane/cmd/control-plane/auth.go`
 
 ```go
@@ -250,15 +264,18 @@ func (s *sqliteStore) cleanExpiredSessions() error
 ```
 
 #### 2. New env vars
+
 ```
 BETTERNAS_SESSION_TTL          # Session duration (default: "720h" = 30 days)
 BETTERNAS_REGISTRATION_ENABLED # Allow new registrations (default: "true")
 ```
 
 #### 3. Update `server.go` - auth middleware and routes
+
 **File**: `apps/control-plane/cmd/control-plane/server.go`
 
 Add auth routes:
+
 ```go
 mux.HandleFunc("POST /api/v1/auth/register", s.handleRegister)
 mux.HandleFunc("POST /api/v1/auth/login", s.handleLogin)
@@ -267,6 +284,7 @@ mux.HandleFunc("GET /api/v1/auth/me", s.handleMe)
 ```
 
 Update client-auth middleware:
+
 ```go
 // Currently: checks Bearer token against static BETTERNAS_CONTROL_PLANE_CLIENT_TOKEN
 // New: checks Bearer token against sessions table first, falls back to static token
@@ -297,12 +315,14 @@ func (s *server) requireClientAuth(next http.Handler) http.Handler {
 ### Success Criteria
 
 #### Automated Verification:
+
 - [ ] `go test` passes for auth endpoints (register, login, logout, me)
 - [ ] `go test` passes for session middleware (valid token, expired token, invalid token)
 - [ ] Existing client token auth still works (backwards compat)
 - [ ] Existing node auth unchanged
 
 #### Manual Verification:
+
 - [ ] Register a user via curl, login, use session token to list exports
 - [ ] Session expires after TTL
 - [ ] Logout invalidates session immediately
@@ -313,11 +333,13 @@ func (s *server) requireClientAuth(next http.Handler) http.Handler {
 ## Phase 3: CORS + Frontend Auth Integration
 
 ### Overview
+
 Add CORS headers to the control-plane so the Vercel-hosted frontend can make API calls. Update the web frontend to use session-based auth (login page, session cookie/token management).
 
 ### Changes Required
 
 #### 1. CORS middleware in control-plane
+
 **File**: `apps/control-plane/cmd/control-plane/server.go`
 
 ```go
@@ -342,14 +364,17 @@ func corsMiddleware(allowedOrigin string, next http.Handler) http.Handler {
 ```
 
 #### 2. Frontend auth flow
+
 **Files**: `apps/web/`
 
 New pages/components:
+
 - `app/login/page.tsx` - Login form (username + password)
 - `app/register/page.tsx` - Registration form (if enabled)
 - `lib/auth.ts` - Client-side auth helpers (store token, attach to requests)
 
 Update `lib/control-plane.ts`:
+
 - Remove `.env.agent` file reading (production doesn't need it)
 - Read `NEXT_PUBLIC_BETTERNAS_API_URL` env var for the backend URL
 - Use session token from localStorage/cookie instead of static client token
@@ -372,7 +397,11 @@ export function clearSessionToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
-export async function login(apiUrl: string, username: string, password: string): Promise<string> {
+export async function login(
+  apiUrl: string,
+  username: string,
+  password: string,
+): Promise<string> {
   const res = await fetch(`${apiUrl}/api/v1/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -386,6 +415,7 @@ export async function login(apiUrl: string, username: string, password: string):
 ```
 
 Update `lib/control-plane.ts`:
+
 ```typescript
 // Replace the current getControlPlaneConfig with:
 export function getControlPlaneConfig(): ControlPlaneConfig {
@@ -396,6 +426,7 @@ export function getControlPlaneConfig(): ControlPlaneConfig {
 ```
 
 #### 3. Auth-gated layout
+
 **File**: `apps/web/app/layout.tsx` or a middleware
 
 Redirect to `/login` if no valid session. The `/login` and `/register` pages are public.
@@ -403,11 +434,13 @@ Redirect to `/login` if no valid session. The `/login` and `/register` pages are
 ### Success Criteria
 
 #### Automated Verification:
+
 - [ ] CORS preflight (OPTIONS) returns correct headers
 - [ ] Frontend builds: `cd apps/web && pnpm build`
 - [ ] No TypeScript errors
 
 #### Manual Verification:
+
 - [ ] Open `betternas.com` (or localhost:3000) - redirected to login
 - [ ] Register a new account, login, see exports dashboard
 - [ ] Click an export, get mount credentials
@@ -419,20 +452,25 @@ Redirect to `/login` if no valid session. The `/login` and `/register` pages are
 ## Phase 4: NixOS Deployment (netty)
 
 ### Overview
+
 Deploy the control-plane as a NixOS-managed systemd service on netty, behind NGINX with ACME TLS at `api.betternas.com`. Stop the Docker Compose stack.
 
 ### Changes Required
 
 #### 1. DNS: Point `api.betternas.com` to netty
+
 Run from local machine (Vercel CLI):
+
 ```bash
 vercel dns add betternas.com api A 152.53.195.59
 ```
 
 #### 2. Build the Go binary for Linux
+
 **File**: `apps/control-plane/Dockerfile` (or local cross-compile)
 
 For NixOS, we can either:
+
 - (a) Cross-compile locally: `GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o control-plane ./cmd/control-plane`
 - (b) Build a Nix package (cleaner, but more work)
 - (c) Build on netty directly from the git repo
@@ -440,6 +478,7 @@ For NixOS, we can either:
 Recommendation: **(c) Build on netty** from the cloned repo. Simple, works now. Add a Nix package later if desired.
 
 #### 3. NixOS configuration changes
+
 **File**: `/home/rathi/Documents/GitHub/nix/hosts/netty/configuration.nix`
 
 Add these blocks (following the existing forgejo/vaultwarden pattern):
@@ -479,6 +518,7 @@ Add these blocks (following the existing forgejo/vaultwarden pattern):
 ```
 
 #### 4. Environment file on netty
+
 **File**: `/var/lib/betternas/control-plane/control-plane.env`
 
 ```bash
@@ -496,6 +536,7 @@ BETTERNAS_NODE_DIRECT_ADDRESS=https://api.betternas.com
 ```
 
 #### 5. Build and deploy script
+
 **File**: `apps/control-plane/scripts/deploy-netty.sh`
 
 ```bash
@@ -516,7 +557,9 @@ ssh "$REMOTE" "cd $REPO && git pull && \
 ```
 
 #### 6. Stop Docker Compose stack
+
 After the systemd service is running and verified:
+
 ```bash
 ssh netty 'bash -c "cd /home/rathi/Documents/GitHub/betterNAS/betterNAS && source scripts/lib/runtime-env.sh && compose down"'
 ```
@@ -524,12 +567,14 @@ ssh netty 'bash -c "cd /home/rathi/Documents/GitHub/betterNAS/betterNAS && sourc
 ### Success Criteria
 
 #### Automated Verification:
+
 - [ ] `curl https://api.betternas.com/health` returns `ok`
 - [ ] `curl https://api.betternas.com/version` returns version JSON
 - [ ] TLS certificate is valid (Let's Encrypt)
 - [ ] `systemctl status betternas-control-plane` shows active
 
 #### Manual Verification:
+
 - [ ] Node-agent can register against `https://api.betternas.com`
 - [ ] Mount credentials issued via the API work in Finder
 - [ ] Service survives restart: `sudo systemctl restart betternas-control-plane`
@@ -540,44 +585,52 @@ ssh netty 'bash -c "cd /home/rathi/Documents/GitHub/betterNAS/betterNAS && sourc
 ## Phase 5: Vercel Deployment
 
 ### Overview
+
 Deploy the Next.js web UI to Vercel at `betternas.com`.
 
 ### Changes Required
 
 #### 1. Create Vercel project
+
 ```bash
 cd apps/web
 vercel link  # or vercel --yes
 ```
 
 #### 2. Configure environment variables on Vercel
+
 ```bash
 vercel env add NEXT_PUBLIC_BETTERNAS_API_URL production
 # Value: https://api.betternas.com
 ```
 
 #### 3. Configure domain
+
 ```bash
 vercel domains add betternas.com
 # Already have wildcard ALIAS to vercel-dns, so this should work
 ```
 
 #### 4. Deploy
+
 ```bash
 cd apps/web
 vercel --prod
 ```
 
 #### 5. Verify CORS
+
 The backend at `api.betternas.com` must have `BETTERNAS_CORS_ORIGIN=https://betternas.com` set (done in Phase 4).
 
 ### Success Criteria
 
 #### Automated Verification:
+
 - [ ] `curl -I https://betternas.com` returns 200
 - [ ] CORS preflight from `betternas.com` to `api.betternas.com` succeeds
 
 #### Manual Verification:
+
 - [ ] Visit `betternas.com` - see login page
 - [ ] Register, login, see exports, issue mount credentials
 - [ ] Mount from Finder using issued credentials
@@ -600,16 +653,19 @@ This is a follow-up task, not part of the initial deployment.
 ## Testing Strategy
 
 ### Unit Tests (Go):
+
 - SQLite store: CRUD operations, transactions, concurrent access
 - Auth: registration, login, session validation, expiry, logout
 - Migration: schema creates cleanly on empty DB
 
 ### Integration Tests:
+
 - Full API flow: register user -> login -> list exports -> issue mount profile
 - Node registration + export sync against SQLite store
 - Session expiry and cleanup
 
 ### Manual Testing:
+
 1. Fresh deploy: start control-plane with empty DB
 2. Register first user via API
 3. Login from web UI

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "CGO_ENABLED=0 go run ./cmd/node-agent",
-    "build": "mkdir -p dist && CGO_ENABLED=0 go build -o dist/node-agent ./cmd/node-agent",
+    "build": "mkdir -p dist && CGO_ENABLED=0 go build -o dist/betternas-node ./cmd/node-agent",
     "format": "files=$(find . -name '*.go' -type f) && if [ -n \"$files\" ]; then gofmt -w $files; fi",
     "format:check": "files=$(find . -name '*.go' -type f) && if [ -n \"$files\" ]; then test -z \"$(gofmt -l $files)\"; fi",
     "lint": "CGO_ENABLED=0 go vet ./...",
