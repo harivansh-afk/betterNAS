@@ -59,9 +59,9 @@ type nodeHeartbeatRequest struct {
 }
 
 func bootstrapNodeAgentFromEnv(exportPaths []string) (bootstrapResult, error) {
-	controlPlaneURL, err := requiredEnv("BETTERNAS_CONTROL_PLANE_URL")
-	if err != nil {
-		return bootstrapResult{}, err
+	controlPlaneURL := strings.TrimSpace(env("BETTERNAS_CONTROL_PLANE_URL", "https://api.betternas.com"))
+	if controlPlaneURL == "" {
+		return bootstrapResult{}, fmt.Errorf("BETTERNAS_CONTROL_PLANE_URL is required")
 	}
 
 	username, err := requiredEnv("BETTERNAS_USERNAME")

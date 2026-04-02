@@ -15,3 +15,22 @@ For the scaffold it does two things:
 This is the first real storage-facing surface in the monorepo.
 
 The user-facing binary should be distributed as `betternas-node`.
+
+Install the latest release with:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/harivansh-afk/betterNAS/main/scripts/install-betternas-node.sh | sh
+```
+
+Then connect a machine to betterNAS with:
+
+```bash
+BETTERNAS_USERNAME=your-username \
+BETTERNAS_PASSWORD=your-password \
+BETTERNAS_EXPORT_PATH=/path/to/export \
+BETTERNAS_NODE_DIRECT_ADDRESS=https://your-public-node-url \
+betternas-node
+```
+
+If `BETTERNAS_CONTROL_PLANE_URL` is not set, the node defaults to
+`https://api.betternas.com`.

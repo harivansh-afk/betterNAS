@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test-control-plane:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/control-plane/go.mod
+          cache-dependency-path: apps/control-plane/go.sum
+      - run: go vet ./...
+        working-directory: apps/control-plane
+      - run: go test -count=1 ./...
+        working-directory: apps/control-plane
+
+  test-node-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/node-agent/go.mod
+          cache-dependency-path: apps/node-agent/go.sum
+      - run: go vet ./...
+        working-directory: apps/node-agent
+      - run: go test -count=1 ./...
+        working-directory: apps/node-agent
+
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @betternas/web build
+        env:
+          NEXT_PUBLIC_BETTERNAS_API_URL: https://api.betternas.com

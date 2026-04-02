@@ -147,11 +147,18 @@ export default function Home() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <pre className="overflow-x-auto rounded-xl border bg-muted/40 p-4 text-xs text-foreground">
-                  <code>
-                    {`BETTERNAS_USERNAME=${user.username} BETTERNAS_PASSWORD=... BETTERNAS_EXPORT_PATH=/path/to/export betternas-node`}
-                  </code>
-                </pre>
+                <div className="flex flex-col gap-4">
+                  <pre className="overflow-x-auto rounded-xl border bg-muted/40 p-4 text-xs text-foreground">
+                    <code>
+                      {`curl -fsSL https://raw.githubusercontent.com/harivansh-afk/betterNAS/main/scripts/install-betternas-node.sh | sh`}
+                    </code>
+                  </pre>
+                  <pre className="overflow-x-auto rounded-xl border bg-muted/40 p-4 text-xs text-foreground">
+                    <code>
+                      {`BETTERNAS_USERNAME=${user.username} BETTERNAS_PASSWORD=... BETTERNAS_EXPORT_PATH=/path/to/export BETTERNAS_NODE_DIRECT_ADDRESS=https://your-public-node-url betternas-node`}
+                    </code>
+                  </pre>
+                </div>
               </CardContent>
             </Card>
           )}
