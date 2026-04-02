@@ -1,5 +1,16 @@
 const API_URL = process.env.NEXT_PUBLIC_BETTERNAS_API_URL || "";
 
+export interface NasNode {
+  id: string;
+  machineId: string;
+  displayName: string;
+  agentVersion: string;
+  status: "online" | "offline" | "degraded";
+  lastSeenAt: string;
+  directAddress: string | null;
+  relayAddress: string | null;
+}
+
 export interface StorageExport {
   id: string;
   nasNodeId: string;
@@ -144,6 +155,10 @@ export async function logout(): Promise<void> {
 
 export async function getMe(): Promise<User> {
   return apiFetch<User>("/api/v1/auth/me");
+}
+
+export async function listNodes(): Promise<NasNode[]> {
+  return apiFetch<NasNode[]>("/api/v1/nodes");
 }
 
 export async function listExports(): Promise<StorageExport[]> {

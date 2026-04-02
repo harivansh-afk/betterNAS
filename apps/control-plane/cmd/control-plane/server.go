@@ -36,6 +36,7 @@ func (a *app) handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/login", a.handleAuthLogin)
 	mux.HandleFunc("POST /api/v1/auth/logout", a.handleAuthLogout)
 	mux.HandleFunc("GET /api/v1/auth/me", a.handleAuthMe)
+	mux.HandleFunc("GET /api/v1/nodes", a.handleNodesList)
 	mux.HandleFunc("POST /api/v1/nodes/register", a.handleNodeRegister)
 	mux.HandleFunc("POST /api/v1/nodes/{nodeId}/heartbeat", a.handleNodeHeartbeat)
 	mux.HandleFunc("PUT /api/v1/nodes/{nodeId}/exports", a.handleNodeExports)
@@ -72,6 +73,15 @@ func (a *app) handleVersion(w http.ResponseWriter, _ *http.Request) {
 		Version:    a.config.version,
 		APIVersion: "v1",
 	})
+}
+
+func (a *app) handleNodesList(w http.ResponseWriter, r *http.Request) {
+	currentUser, ok := a.requireSessionUser(w, r)
+	if !ok {
+		return
+	}
+
+	writeJSON(w, http.StatusOK, a.listNodes(currentUser.ID))
 }
 
 func (a *app) handleNodeRegister(w http.ResponseWriter, r *http.Request) {
@@ -177,7 +187,7 @@ func (a *app) handleExportsList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, a.store.listExports(currentUser.ID))
+	writeJSON(w, http.StatusOK, a.listConnectedExports(currentUser.ID))
 }
 
 func (a *app) handleMountProfileIssue(w http.ResponseWriter, r *http.Request) {
@@ -200,6 +210,11 @@ func (a *app) handleMountProfileIssue(w http.ResponseWriter, r *http.Request) {
 	context, found := a.store.exportContext(request.ExportID, currentUser.ID)
 	if !found {
 		http.Error(w, errExportNotFound.Error(), http.StatusNotFound)
+		return
+	}
+	context.node = a.presentedNode(context.node)
+	if !nodeIsConnected(context.node) {
+		http.Error(w, errMountTargetUnavailable.Error(), http.StatusServiceUnavailable)
 		return
 	}
 

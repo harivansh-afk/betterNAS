@@ -18,6 +18,22 @@ paths:
       responses:
         "200":
           description: Control-plane version
+  /api/v1/nodes:
+    get:
+      operationId: listNodes
+      security:
+        - UserSession: []
+      responses:
+        "200":
+          description: Node list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NasNode"
+        "401":
+          description: Unauthorized
   /api/v1/nodes/register:
     post:
       operationId: registerNode

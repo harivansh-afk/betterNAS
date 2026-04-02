@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"golang.org/x/net/webdav"
 )
@@ -27,6 +30,7 @@ type app struct {
 	authUsername string
 	authPassword string
 	exportMounts []exportMount
+	controlPlane *controlPlaneSession
 }
 
 type exportMount struct {
@@ -69,17 +73,92 @@ func newAppFromEnv() (*app, error) {
 	if err != nil {
 		return nil, err
 	}
+	var controlPlane *controlPlaneSession
 	if strings.TrimSpace(env("BETTERNAS_CONTROL_PLANE_URL", "")) != "" {
-		if _, err := bootstrapNodeAgentFromEnv(exportPaths); err != nil {
+		session, err := bootstrapNodeAgentFromEnv(exportPaths)
+		if err != nil {
 			return nil, err
 		}
+		controlPlane = &session
 	}
 
-	return newApp(appConfig{
+	app, err := newApp(appConfig{
 		exportPaths:  exportPaths,
 		authUsername: authUsername,
 		authPassword: authPassword,
 	})
+	if err != nil {
+		return nil, err
+	}
+	app.controlPlane = controlPlane
+	return app, nil
+}
+
+func (a *app) startControlPlaneLoop(ctx context.Context) {
+	if a.controlPlane == nil {
+		return
+	}
+
+	go runNodeHeartbeatLoop(
+		ctx,
+		&http.Client{Timeout: 5 * time.Second},
+		a.controlPlane.controlPlaneURL,
+		a.controlPlane.sessionToken,
+		a.controlPlane.nodeID,
+		a.controlPlane.heartbeatInterval,
+		time.Now,
+		log.Default(),
+	)
+}
+
+func (a *app) controlPlaneEnabled() bool {
+	return a.controlPlane != nil
+}
+
+func defaultNodeHeartbeatInterval() time.Duration {
+	return 30 * time.Second
+}
+
+func heartbeatIntervalFromEnv() (time.Duration, error) {
+	rawInterval := strings.TrimSpace(env("BETTERNAS_NODE_HEARTBEAT_INTERVAL", "30s"))
+	if rawInterval == "" {
+		return defaultNodeHeartbeatInterval(), nil
+	}
+
+	interval, err := time.ParseDuration(rawInterval)
+	if err != nil {
+		return 0, err
+	}
+	if interval <= 0 {
+		return 0, errors.New("BETTERNAS_NODE_HEARTBEAT_INTERVAL must be greater than zero")
+	}
+
+	return interval, nil
+}
+
+func runNodeHeartbeatLoop(
+	ctx context.Context,
+	client *http.Client,
+	baseURL string,
+	sessionToken string,
+	nodeID string,
+	interval time.Duration,
+	now func() time.Time,
+	logger *log.Logger,
+) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := sendNodeHeartbeatAt(client, baseURL, sessionToken, nodeID, now().UTC()); err != nil && logger != nil {
+				logger.Printf("betternas node heartbeat failed: %v", err)
+			}
+		}
+	}
 }
 
 func exportPathsFromEnv() ([]string, error) {

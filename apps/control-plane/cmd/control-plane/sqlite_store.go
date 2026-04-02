@@ -346,6 +346,27 @@ func (s *sqliteStore) listExports(ownerID string) []storageExport {
 	return exports
 }
 
+func (s *sqliteStore) listNodes(ownerID string) []nasNode {
+	rows, err := s.db.Query("SELECT id, machine_id, owner_id, display_name, agent_version, status, last_seen_at, direct_address, relay_address FROM nodes WHERE owner_id = ? ORDER BY id", ownerID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var nodes []nasNode
+	for rows.Next() {
+		node := s.scanNode(rows)
+		if node.ID != "" {
+			nodes = append(nodes, node)
+		}
+	}
+	if nodes == nil {
+		nodes = []nasNode{}
+	}
+
+	return nodes
+}
+
 func (s *sqliteStore) listExportsForNode(nodeID string) []storageExport {
 	rows, err := s.db.Query("SELECT id, node_id, owner_id, label, path, mount_path, capacity_bytes FROM exports WHERE node_id = ? ORDER BY id", nodeID)
 	if err != nil {
@@ -401,15 +422,29 @@ func (s *sqliteStore) exportContext(exportID string, ownerID string) (exportCont
 }
 
 func (s *sqliteStore) nodeByID(nodeID string) (nasNode, bool) {
+	row := s.db.QueryRow(
+		"SELECT id, machine_id, owner_id, display_name, agent_version, status, last_seen_at, direct_address, relay_address FROM nodes WHERE id = ?",
+		nodeID)
+	n := s.scanNode(row)
+	if n.ID == "" {
+		return nasNode{}, false
+	}
+
+	return n, true
+}
+
+type sqliteNodeScanner interface {
+	Scan(dest ...any) error
+}
+
+func (s *sqliteStore) scanNode(scanner sqliteNodeScanner) nasNode {
 	var n nasNode
 	var directAddr, relayAddr sql.NullString
 	var lastSeenAt sql.NullString
 	var ownerID sql.NullString
-	err := s.db.QueryRow(
-		"SELECT id, machine_id, owner_id, display_name, agent_version, status, last_seen_at, direct_address, relay_address FROM nodes WHERE id = ?",
-		nodeID).Scan(&n.ID, &n.MachineID, &ownerID, &n.DisplayName, &n.AgentVersion, &n.Status, &lastSeenAt, &directAddr, &relayAddr)
+	err := scanner.Scan(&n.ID, &n.MachineID, &ownerID, &n.DisplayName, &n.AgentVersion, &n.Status, &lastSeenAt, &directAddr, &relayAddr)
 	if err != nil {
-		return nasNode{}, false
+		return nasNode{}
 	}
 	if ownerID.Valid {
 		n.OwnerID = ownerID.String
@@ -423,7 +458,7 @@ func (s *sqliteStore) nodeByID(nodeID string) (nasNode, bool) {
 	if relayAddr.Valid {
 		n.RelayAddress = &relayAddr.String
 	}
-	return n, true
+	return n
 }
 
 func (s *sqliteStore) nodeAuthByMachineID(machineID string) (nodeAuthState, bool) {

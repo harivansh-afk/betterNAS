@@ -37,7 +37,8 @@ case "$arch_name" in
     ;;
 esac
 
-archive_name="${binary_name}_${version}_${os}_${arch}.tar.gz"
+version_stripped="${version#v}"
+archive_name="${binary_name}_${version_stripped}_${os}_${arch}.tar.gz"
 download_url="${download_base_url}/${version}/${archive_name}"
 
 tmp_dir="$(mktemp -d)"

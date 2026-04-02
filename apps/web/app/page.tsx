@@ -12,11 +12,13 @@ import {
 import {
   isAuthenticated,
   listExports,
+  listNodes,
   issueMountProfile,
   logout,
   getMe,
   type StorageExport,
   type MountProfile,
+  type NasNode,
   type User,
   ApiError,
 } from "@/lib/api";
@@ -38,6 +40,7 @@ import { CopyField } from "./copy-field";
 export default function Home() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [nodes, setNodes] = useState<NasNode[]>([]);
   const [exports, setExports] = useState<StorageExport[]>([]);
   const [selectedExportId, setSelectedExportId] = useState<string | null>(null);
   const [mountProfile, setMountProfile] = useState<MountProfile | null>(null);
@@ -52,8 +55,13 @@ export default function Home() {
 
     async function load() {
       try {
-        const [me, exps] = await Promise.all([getMe(), listExports()]);
+        const [me, registeredNodes, exps] = await Promise.all([
+          getMe(),
+          listNodes(),
+          listExports(),
+        ]);
         setUser(me);
+        setNodes(registeredNodes);
         setExports(exps);
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
@@ -100,6 +108,13 @@ export default function Home() {
   const selectedExport = selectedExportId
     ? (exports.find((e) => e.id === selectedExportId) ?? null)
     : null;
+  const onlineNodeCount = nodes.filter((node) => node.status === "online").length;
+  const degradedNodeCount = nodes.filter(
+    (node) => node.status === "degraded",
+  ).length;
+  const offlineNodeCount = nodes.filter(
+    (node) => node.status === "offline",
+  ).length;
 
   return (
     <main className="min-h-screen bg-background">
@@ -134,6 +149,9 @@ export default function Home() {
             </Badge>
             <Badge variant="secondary">
               {exports.length === 1 ? "1 export" : `${exports.length} exports`}
+            </Badge>
+            <Badge variant="outline">
+              {nodes.length === 1 ? "1 node" : `${nodes.length} nodes`}
             </Badge>
           </div>
 
@@ -172,12 +190,107 @@ export default function Home() {
           </Alert>
         )}
 
+        <Card>
+          <CardHeader>
+            <CardTitle>Nodes</CardTitle>
+            <CardDescription>
+              Machines registered to your account and their current connection
+              state.
+            </CardDescription>
+            <CardAction>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">
+                  {onlineNodeCount} online
+                </Badge>
+                {degradedNodeCount > 0 && (
+                  <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                    {degradedNodeCount} degraded
+                  </Badge>
+                )}
+                {offlineNodeCount > 0 && (
+                  <Badge variant="outline">{offlineNodeCount} offline</Badge>
+                )}
+              </div>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            {nodes.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed py-10 text-center">
+                <HardDrives size={32} className="text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground">
+                  No nodes registered yet. Install and start the node agent on
+                  the machine that owns your files.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {nodes.map((node) => (
+                  <div
+                    key={node.id}
+                    className="flex flex-col gap-3 rounded-2xl border p-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium text-foreground">
+                          {node.displayName}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {node.machineId}
+                        </span>
+                      </div>
+                      <Badge
+                        variant={node.status === "offline" ? "outline" : "secondary"}
+                        className={
+                          node.status === "online"
+                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                            : node.status === "degraded"
+                              ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                              : undefined
+                        }
+                      >
+                        {node.status}
+                      </Badge>
+                    </div>
+
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+                      <div>
+                        <dt className="mb-0.5 text-xs uppercase tracking-wide text-muted-foreground">
+                          Node ID
+                        </dt>
+                        <dd className="truncate text-xs text-foreground">
+                          {node.id}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="mb-0.5 text-xs uppercase tracking-wide text-muted-foreground">
+                          Last seen
+                        </dt>
+                        <dd className="text-xs text-foreground">
+                          {formatTimestamp(node.lastSeenAt)}
+                        </dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className="mb-0.5 text-xs uppercase tracking-wide text-muted-foreground">
+                          Address
+                        </dt>
+                        <dd className="truncate text-xs text-foreground">
+                          {node.directAddress ?? node.relayAddress ?? "Unavailable"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
           <Card>
             <CardHeader>
               <CardTitle>Exports</CardTitle>
               <CardDescription>
-                Storage exports registered with this control plane.
+                Connected storage exports that are currently mountable.
               </CardDescription>
               <CardAction>
                 <Badge variant="secondary">
@@ -192,8 +305,9 @@ export default function Home() {
                 <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed py-10 text-center">
                   <HardDrives size={32} className="text-muted-foreground/40" />
                   <p className="text-sm text-muted-foreground">
-                    No exports registered yet. Start the node agent and connect
-                    it to this control plane.
+                    {nodes.length === 0
+                      ? "No exports registered yet. Start the node agent and connect it to this control plane."
+                      : "No connected exports right now. Start the node agent or wait for a disconnected node to reconnect."}
                   </p>
                 </div>
               ) : (
@@ -370,4 +484,18 @@ export default function Home() {
       </div>
     </main>
   );
+}
+
+function formatTimestamp(value: string): string {
+  const trimmedValue = value.trim();
+  if (trimmedValue === "") {
+    return "Never";
+  }
+
+  const parsed = new Date(trimmedValue);
+  if (Number.isNaN(parsed.getTime())) {
+    return trimmedValue;
+  }
+
+  return parsed.toLocaleString();
 }

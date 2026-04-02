@@ -1,6 +1,8 @@
 package main
 
 import (
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -10,6 +12,7 @@ type appConfig struct {
 	statePath           string
 	dbPath              string
 	sessionTTL          time.Duration
+	nodeOfflineThreshold time.Duration
 	registrationEnabled bool
 	corsOrigin          string
 }
@@ -21,7 +24,13 @@ type app struct {
 	store     store
 }
 
+const defaultNodeOfflineThreshold = 2 * time.Minute
+
 func newApp(config appConfig, startedAt time.Time) (*app, error) {
+	if config.nodeOfflineThreshold <= 0 {
+		config.nodeOfflineThreshold = defaultNodeOfflineThreshold
+	}
+
 	var s store
 	var err error
 	if config.dbPath != "" {
@@ -39,6 +48,68 @@ func newApp(config appConfig, startedAt time.Time) (*app, error) {
 		config:    config,
 		store:     s,
 	}, nil
+}
+
+func (a *app) presentedNode(node nasNode) nasNode {
+	presented := copyNasNode(node)
+	if !nodeHeartbeatIsFresh(presented.LastSeenAt, a.now().UTC(), a.config.nodeOfflineThreshold) {
+		presented.Status = "offline"
+	}
+	return presented
+}
+
+func (a *app) listNodes(ownerID string) []nasNode {
+	nodes := a.store.listNodes(ownerID)
+	presented := make([]nasNode, 0, len(nodes))
+	for _, node := range nodes {
+		presented = append(presented, a.presentedNode(node))
+	}
+
+	sort.Slice(presented, func(i, j int) bool {
+		return presented[i].ID < presented[j].ID
+	})
+
+	return presented
+}
+
+func (a *app) listConnectedExports(ownerID string) []storageExport {
+	exports := a.store.listExports(ownerID)
+	connected := make([]storageExport, 0, len(exports))
+	for _, export := range exports {
+		context, ok := a.store.exportContext(export.ID, ownerID)
+		if !ok {
+			continue
+		}
+		if !nodeIsConnected(a.presentedNode(context.node)) {
+			continue
+		}
+		connected = append(connected, export)
+	}
+
+	return connected
+}
+
+func nodeHeartbeatIsFresh(lastSeenAt string, referenceTime time.Time, threshold time.Duration) bool {
+	lastSeenAt = strings.TrimSpace(lastSeenAt)
+	if threshold <= 0 || lastSeenAt == "" {
+		return false
+	}
+
+	parsedLastSeenAt, err := time.Parse(time.RFC3339, lastSeenAt)
+	if err != nil {
+		return false
+	}
+
+	referenceTime = referenceTime.UTC()
+	if parsedLastSeenAt.After(referenceTime) {
+		return true
+	}
+
+	return referenceTime.Sub(parsedLastSeenAt) <= threshold
+}
+
+func nodeIsConnected(node nasNode) bool {
+	return node.Status == "online" || node.Status == "degraded"
 }
 
 type nextcloudBackendStatus struct {

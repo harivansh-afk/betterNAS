@@ -1,4 +1,5 @@
 export const FOUNDATION_API_ROUTES = {
+  listNodes: "/api/v1/nodes",
   registerNode: "/api/v1/nodes/register",
   nodeHeartbeat: "/api/v1/nodes/:nodeId/heartbeat",
   nodeExports: "/api/v1/nodes/:nodeId/exports",

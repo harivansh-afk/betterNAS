@@ -65,3 +65,8 @@
 ## Live operations
 
 - If modifying the live Netcup deployment, only stop the `betternas` node process unless the user explicitly asks to modify the deployed backend service.
+
+## Node availability UX
+
+- Prefer default UI behavior that does not present disconnected nodes as mountable.
+- Surface connected and disconnected node state in the product when node availability is exposed.

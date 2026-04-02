@@ -320,6 +320,25 @@ func (s *memoryStore) listExports(ownerID string) []storageExport {
 	return exports
 }
 
+func (s *memoryStore) listNodes(ownerID string) []nasNode {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	nodes := make([]nasNode, 0, len(s.state.NodesByID))
+	for _, node := range s.state.NodesByID {
+		if node.OwnerID != ownerID {
+			continue
+		}
+		nodes = append(nodes, copyNasNode(node))
+	}
+
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].ID < nodes[j].ID
+	})
+
+	return nodes
+}
+
 func (s *memoryStore) exportContext(exportID string, ownerID string) (exportContext, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

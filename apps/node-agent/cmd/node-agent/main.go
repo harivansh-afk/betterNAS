@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -13,6 +16,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	controlPlaneCtx, stopControlPlane := context.WithCancel(context.Background())
+	defer stopControlPlane()
+	if app.controlPlaneEnabled() {
+		app.startControlPlaneLoop(controlPlaneCtx)
+	}
+
+	signalContext, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
+	go func() {
+		<-signalContext.Done()
+		stopControlPlane()
+	}()
 
 	server := &http.Server{
 		Addr:              ":" + port,

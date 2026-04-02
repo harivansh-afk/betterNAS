@@ -9,6 +9,7 @@ type store interface {
 	upsertExports(nodeID string, ownerID string, request nodeExportsRequest) ([]storageExport, error)
 	recordHeartbeat(nodeID string, ownerID string, request nodeHeartbeatRequest) error
 	listExports(ownerID string) []storageExport
+	listNodes(ownerID string) []nasNode
 	exportContext(exportID string, ownerID string) (exportContext, bool)
 	nodeByID(nodeID string) (nasNode, bool)
 

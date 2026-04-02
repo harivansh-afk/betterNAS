@@ -14,8 +14,11 @@ import (
 	"time"
 )
 
-type bootstrapResult struct {
-	nodeID string
+type controlPlaneSession struct {
+	nodeID            string
+	controlPlaneURL   string
+	sessionToken      string
+	heartbeatInterval time.Duration
 }
 
 type nodeRegistrationRequest struct {
@@ -58,19 +61,23 @@ type nodeHeartbeatRequest struct {
 	LastSeenAt string `json:"lastSeenAt"`
 }
 
-func bootstrapNodeAgentFromEnv(exportPaths []string) (bootstrapResult, error) {
+func bootstrapNodeAgentFromEnv(exportPaths []string) (controlPlaneSession, error) {
 	controlPlaneURL := strings.TrimSpace(env("BETTERNAS_CONTROL_PLANE_URL", "https://api.betternas.com"))
 	if controlPlaneURL == "" {
-		return bootstrapResult{}, fmt.Errorf("BETTERNAS_CONTROL_PLANE_URL is required")
+		return controlPlaneSession{}, fmt.Errorf("BETTERNAS_CONTROL_PLANE_URL is required")
 	}
 
 	username, err := requiredEnv("BETTERNAS_USERNAME")
 	if err != nil {
-		return bootstrapResult{}, err
+		return controlPlaneSession{}, err
 	}
 	password, err := requiredEnv("BETTERNAS_PASSWORD")
 	if err != nil {
-		return bootstrapResult{}, err
+		return controlPlaneSession{}, err
+	}
+	heartbeatInterval, err := heartbeatIntervalFromEnv()
+	if err != nil {
+		return controlPlaneSession{}, err
 	}
 
 	machineID := strings.TrimSpace(env("BETTERNAS_NODE_MACHINE_ID", defaultNodeMachineID(username)))
@@ -82,7 +89,7 @@ func bootstrapNodeAgentFromEnv(exportPaths []string) (bootstrapResult, error) {
 	client := &http.Client{Timeout: 5 * time.Second}
 	sessionToken, err := loginWithControlPlane(client, controlPlaneURL, username, password)
 	if err != nil {
-		return bootstrapResult{}, err
+		return controlPlaneSession{}, err
 	}
 
 	registration, err := registerNodeWithControlPlane(client, controlPlaneURL, sessionToken, nodeRegistrationRequest{
@@ -93,17 +100,22 @@ func bootstrapNodeAgentFromEnv(exportPaths []string) (bootstrapResult, error) {
 		RelayAddress:  optionalEnvPointer("BETTERNAS_NODE_RELAY_ADDRESS"),
 	})
 	if err != nil {
-		return bootstrapResult{}, err
+		return controlPlaneSession{}, err
 	}
 
 	if err := syncNodeExportsWithControlPlane(client, controlPlaneURL, sessionToken, registration.ID, buildStorageExportInputs(exportPaths)); err != nil {
-		return bootstrapResult{}, err
+		return controlPlaneSession{}, err
 	}
-	if err := sendNodeHeartbeat(client, controlPlaneURL, sessionToken, registration.ID); err != nil {
-		return bootstrapResult{}, err
+	if err := sendNodeHeartbeatAt(client, controlPlaneURL, sessionToken, registration.ID, time.Now().UTC()); err != nil {
+		return controlPlaneSession{}, err
 	}
 
-	return bootstrapResult{nodeID: registration.ID}, nil
+	return controlPlaneSession{
+		nodeID:            registration.ID,
+		controlPlaneURL:   controlPlaneURL,
+		sessionToken:      sessionToken,
+		heartbeatInterval: heartbeatInterval,
+	}, nil
 }
 
 func loginWithControlPlane(client *http.Client, baseURL string, username string, password string) (string, error) {
@@ -168,10 +180,14 @@ func syncNodeExportsWithControlPlane(client *http.Client, baseURL string, token 
 }
 
 func sendNodeHeartbeat(client *http.Client, baseURL string, token string, nodeID string) error {
+	return sendNodeHeartbeatAt(client, baseURL, token, nodeID, time.Now().UTC())
+}
+
+func sendNodeHeartbeatAt(client *http.Client, baseURL string, token string, nodeID string, at time.Time) error {
 	response, err := doControlPlaneJSONRequest(client, http.MethodPost, controlPlaneEndpoint(baseURL, "/api/v1/nodes/"+nodeID+"/heartbeat"), token, nodeHeartbeatRequest{
 		NodeID:     nodeID,
 		Status:     "online",
-		LastSeenAt: time.Now().UTC().Format(time.RFC3339),
+		LastSeenAt: at.UTC().Format(time.RFC3339),
 	})
 	if err != nil {
 		return err

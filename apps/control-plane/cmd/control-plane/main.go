@@ -36,6 +36,16 @@ func newAppFromEnv(startedAt time.Time) (*app, error) {
 		sessionTTL = parsedSessionTTL
 	}
 
+	nodeOfflineThreshold := defaultNodeOfflineThreshold
+	rawNodeOfflineThreshold := strings.TrimSpace(env("BETTERNAS_NODE_OFFLINE_THRESHOLD", "2m"))
+	if rawNodeOfflineThreshold != "" {
+		parsedNodeOfflineThreshold, err := time.ParseDuration(rawNodeOfflineThreshold)
+		if err != nil {
+			return nil, err
+		}
+		nodeOfflineThreshold = parsedNodeOfflineThreshold
+	}
+
 	app, err := newApp(
 		appConfig{
 			version:             env("BETTERNAS_VERSION", "0.1.0-dev"),
@@ -43,6 +53,7 @@ func newAppFromEnv(startedAt time.Time) (*app, error) {
 			statePath:           env("BETTERNAS_CONTROL_PLANE_STATE_PATH", ".state/control-plane/state.json"),
 			dbPath:              env("BETTERNAS_CONTROL_PLANE_DB_PATH", ".state/control-plane/betternas.db"),
 			sessionTTL:          sessionTTL,
+			nodeOfflineThreshold: nodeOfflineThreshold,
 			registrationEnabled: env("BETTERNAS_REGISTRATION_ENABLED", "true") == "true",
 			corsOrigin:          env("BETTERNAS_CORS_ORIGIN", ""),
 		},
