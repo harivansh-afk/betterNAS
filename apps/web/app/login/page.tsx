@@ -32,7 +32,7 @@ export default function LoginPage() {
       } else {
         await register(username, password);
       }
-      router.push("/");
+      router.push("/app");
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -48,7 +48,7 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="flex w-full max-w-sm flex-col gap-4">
         <Link
-          href="/landing"
+          href="/"
           className="inline-flex items-center gap-1.5 self-start text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <svg className="size-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">

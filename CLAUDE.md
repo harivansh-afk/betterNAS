@@ -65,8 +65,17 @@
 ## Live operations
 
 - If modifying the live Netcup deployment, only stop the `betternas` node process unless the user explicitly asks to modify the deployed backend service.
+- When setting up a separate machine as a node in this session, access it through `computer ssh hiromi`.
 
 ## Node availability UX
 
 - Prefer default UI behavior that does not present disconnected nodes as mountable.
 - Surface connected and disconnected node state in the product when node availability is exposed.
+
+## Product docs UX
+
+- Remove operational setup instructions from the main control-plane page when they are better represented as dedicated end-to-end product docs.
+- Prefer a separate clean docs page for simple end-to-end usage instructions.
+- Keep the root `README.md` extremely minimal: no headings, just 5-6 plain lines that explain the architecture simply and cleanly.
+- Make the default root route land on the main landing page instead of the auth-gated app.
+- Add a plain `Docs` button to the left of the sign-in button on the main landing page.

@@ -11,50 +11,27 @@ const README_LINES = [
   { tag: "h1", text: "betterNAS" },
   {
     tag: "p",
-    text: "betterNAS is a self-hostable WebDAV stack for mounting NAS exports in Finder.",
-  },
-  { tag: "p", text: "The default product shape is:" },
-  {
-    tag: "ul",
-    items: [
-      "node-service serves the real files from the NAS over WebDAV",
-      "control-server owns auth, nodes, exports, grants, and mount profile issuance",
-      "web control plane lets the user manage the NAS and get mount instructions",
-      "macOS client starts as native Finder WebDAV mounting, with a thin helper later",
-    ],
+    text: "betterNAS is a hosted control plane with a user-run node agent.",
   },
   {
     tag: "p",
-    text: "For now, the whole stack should be able to run on the user's NAS device.",
+    text: "The control plane owns user auth, node enrollment, heartbeats, export state, and mount issuance.",
   },
-  { tag: "h2", text: "Current repo shape" },
-  {
-    tag: "ul",
-    items: [
-      "apps/node-agent - NAS-side Go runtime and WebDAV server",
-      "apps/control-plane - Go backend for auth, registry, and mount profile issuance",
-      "apps/web - Next.js web control plane",
-      "apps/nextcloud-app - optional Nextcloud adapter, not the product center",
-      "packages/contracts - canonical shared contracts",
-      "infra/docker - self-hosted local stack",
-    ],
-  },
-  { tag: "h2", text: "Verify" },
-  { tag: "code", text: "pnpm verify" },
-  { tag: "h2", text: "Current end-to-end slice" },
-  {
-    tag: "ol",
-    items: [
-      "Boot the stack with pnpm stack:up",
-      "Verify it with pnpm stack:verify",
-      "Get the WebDAV mount profile from the control plane",
-      "Mount it in Finder with the issued credentials",
-    ],
-  },
-  { tag: "h2", text: "Product boundary" },
   {
     tag: "p",
-    text: "The default betterNAS product is self-hosted and WebDAV-first. Nextcloud remains optional and secondary.",
+    text: "The node agent runs on the machine that owns the files and serves them over WebDAV.",
+  },
+  {
+    tag: "p",
+    text: "The web app reads from the control plane and shows nodes, exports, and mount details.",
+  },
+  {
+    tag: "p",
+    text: "Finder mounts the export from the node's public WebDAV URL using the same betterNAS username and password.",
+  },
+  {
+    tag: "p",
+    text: "File traffic goes directly between the client and the node, not through the control plane.",
   },
 ] as const;
 
@@ -217,59 +194,11 @@ function ReadmeModal({ onClose }: { onClose: () => void }) {
                     {block.text}
                   </h1>
                 );
-              if (block.tag === "h2")
-                return (
-                  <h2
-                    key={i}
-                    className="mt-6 border-b border-border pb-1 text-lg font-semibold text-foreground"
-                  >
-                    {block.text}
-                  </h2>
-                );
-              if (block.tag === "p")
-                return (
-                  <p key={i} className="text-sm leading-relaxed text-muted-foreground">
-                    {block.text}
-                  </p>
-                );
-              if (block.tag === "code")
-                return (
-                  <pre
-                    key={i}
-                    className="rounded-lg border border-border bg-muted/40 px-4 py-3 font-mono text-xs text-foreground"
-                  >
-                    {block.text}
-                  </pre>
-                );
-              if (block.tag === "ul")
-                return (
-                  <ul key={i} className="space-y-1 pl-5 text-sm text-muted-foreground">
-                    {block.items.map((item, j) => (
-                      <li key={j} className="list-disc">
-                        <code className="rounded bg-muted/60 px-1 py-0.5 text-xs text-foreground">
-                          {item.split(" - ")[0]}
-                        </code>
-                        {item.includes(" - ") && (
-                          <span className="text-muted-foreground">
-                            {" "}
-                            - {item.split(" - ").slice(1).join(" - ")}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                );
-              if (block.tag === "ol")
-                return (
-                  <ol key={i} className="space-y-1 pl-5 text-sm text-muted-foreground">
-                    {block.items.map((item, j) => (
-                      <li key={j} className="list-decimal">
-                        {item}
-                      </li>
-                    ))}
-                  </ol>
-                );
-              return null;
+              return (
+                <p key={i} className="text-sm leading-relaxed text-muted-foreground">
+                  {block.text}
+                </p>
+              );
             })}
           </div>
         </div>
@@ -394,6 +323,12 @@ export default function LandingPage() {
       {/* ---- header ---- */}
       <header className="flex shrink-0 items-center justify-end px-5 py-3.5">
         <div className="flex items-center gap-2">
+          <Link
+            href="/docs"
+            className="rounded-xl border border-border bg-muted/30 px-4 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            Docs
+          </Link>
           <Link
             href="/login"
             className="rounded-xl border border-border bg-muted/30 px-4 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
