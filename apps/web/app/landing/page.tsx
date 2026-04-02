@@ -11,11 +11,11 @@ const README_LINES = [
   { tag: "h1", text: "betterNAS" },
   {
     tag: "p",
-    text: "Mount VMs and remote filesystems on your Mac as native Finder volumes. No special client, no syncing - just your files, where you expect them.",
+    text: "betterNAS lets you mount remote machines as native Finder volumes on your Mac. Install a small agent on any box with files you care about, and it shows up in Finder like a local drive.",
   },
   {
     tag: "p",
-    text: "Soon: a unified layer across your phone, computer, and AI agents. A safe, modular backup of your filesystem that you can use natively - and a way to deploy agents on your own infrastructure without giving up control.",
+    text: "The goal is to build a modular filesystem you actually use natively",
   },
 ] as const;
 

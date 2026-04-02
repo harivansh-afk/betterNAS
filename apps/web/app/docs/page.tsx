@@ -67,15 +67,16 @@ export default function DocsPage() {
               betterNAS
             </h1>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Mount VMs and remote filesystems on your Mac as native Finder
-              volumes. No special client, no syncing - just your files, where
-              you expect them.
+              Mount remote machines as native Finder volumes on your Mac.
+              Install a small agent on any box with files you care about, and
+              it shows up in Finder like a local drive. No sync clients, no
+              special apps - just your files, where you expect them.
             </p>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Soon: a unified layer across your phone, computer, and AI agents.
-              A safe, modular backup of your filesystem that you can use
-              natively - and a way to deploy agents on your own infrastructure
-              without giving up control.
+              The plan is bigger: phone, laptop, agents, all seeing the same
+              filesystem. A modular backup layer you actually use day-to-day,
+              and a way to run agents on your own hardware without handing over
+              the keys.
             </p>
             <h2 className="mt-4 text-lg font-semibold tracking-tight">
               Getting started
