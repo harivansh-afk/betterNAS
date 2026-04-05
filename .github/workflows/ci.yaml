@@ -7,7 +7,7 @@ on:
 
 jobs:
   test-control-plane:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, netty]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -20,7 +20,7 @@ jobs:
         working-directory: apps/control-plane
 
   test-node-agent:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, netty]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
