@@ -1,3 +1,8 @@
+# BetterNAS
+
+https://github.com/user-attachments/assets/7909f957-b6d9-4cc1-aaec-369d5d94a7f5
+
+
 betterNAS lets you mount remote machines as native Finder volumes on your Mac.
 Install a small agent on any box with files you care about, and it shows up in Finder like a local drive.
 No sync clients, no special apps - just your files, where you expect them.
