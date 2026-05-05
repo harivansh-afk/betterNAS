@@ -320,7 +320,7 @@ export default function LandingPage() {
             Sign in
           </Link>
           <a
-            href="https://github.com/harivansh-afk/betterNAS"
+            href="https://git.harivan.sh/harivansh-afk/betterNAS"
             target="_blank"
             rel="noopener noreferrer"
             className="flex size-8 items-center justify-center rounded-xl border border-border bg-muted/30 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

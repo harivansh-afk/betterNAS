@@ -6,8 +6,8 @@ repo="${BETTERNAS_NODE_REPO:-harivansh-afk/betterNAS}"
 binary_name="betternas-node"
 install_dir="${BETTERNAS_INSTALL_DIR:-$HOME/.local/bin}"
 version="${BETTERNAS_NODE_VERSION:-}"
-release_api_url="${BETTERNAS_NODE_RELEASE_API_URL:-https://api.github.com/repos/${repo}/releases/latest}"
-download_base_url="${BETTERNAS_NODE_DOWNLOAD_BASE_URL:-https://github.com/${repo}/releases/download}"
+release_api_url="${BETTERNAS_NODE_RELEASE_API_URL:-https://git.harivan.sh/api/v1/repos/${repo}/releases/latest}"
+download_base_url="${BETTERNAS_NODE_DOWNLOAD_BASE_URL:-https://git.harivan.sh/${repo}/releases/download}"
 
 if [[ -z "$version" ]]; then
   version="$(
