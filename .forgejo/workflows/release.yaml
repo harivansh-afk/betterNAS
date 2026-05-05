@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/node-agent/go.mod
+          cache-dependency-path: apps/node-agent/go.sum
+      - name: Build release archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist tmp
+          for os in darwin linux; do
+            for arch in amd64 arm64; do
+              out="tmp/betternas-node"
+              GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 go build -ldflags "-s -w" -o "$out" ./cmd/node-agent
+              archive="dist/betternas-node_${version}_${os}_${arch}.tar.gz"
+              tar -C tmp -czf "$archive" betternas-node
+              rm -f "$out"
+            done
+          done
+          (cd dist && sha256sum *.tar.gz > checksums.txt)
+        working-directory: apps/node-agent
+
+      - name: Create Forgejo release
+        env:
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORGEJO_API: ${{ github.server_url }}/api/v1
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json="$(mktemp)"
+          status="$(
+            curl -sS -o "$release_json" -w '%{http_code}' \
+              -H "Authorization: token $FORGEJO_TOKEN" \
+              -H "Content-Type: application/json" \
+              -X POST "$FORGEJO_API/repos/$REPO/releases" \
+              -d "{\"tag_name\":\"$TAG\",\"target_commitish\":\"main\",\"name\":\"$TAG\",\"body\":\"Release $TAG\",\"draft\":false,\"prerelease\":false}"
+          )"
+          if [ "$status" = "409" ]; then
+            curl -fsS -H "Authorization: token $FORGEJO_TOKEN" \
+              "$FORGEJO_API/repos/$REPO/releases/tags/$TAG" -o "$release_json"
+          elif [ "$status" != "201" ]; then
+            cat "$release_json"
+            exit 1
+          fi
+          release_id="$(jq -r .id "$release_json")"
+          for file in apps/node-agent/dist/*; do
+            name="$(basename "$file")"
+            curl -fsS -H "Authorization: token $FORGEJO_TOKEN" \
+              -X POST \
+              -F "attachment=@$file" \
+              "$FORGEJO_API/repos/$REPO/releases/$release_id/assets?name=$name" >/dev/null
+          done
