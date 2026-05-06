@@ -1,6 +1,6 @@
 # BetterNAS
 
-<video controls src="docs/assets/betternas-finder-preview.mp4"></video>
+<video controls src="/harivansh-afk/betterNAS/media/branch/main/docs/assets/betternas-finder-preview.mp4"></video>
 
 
 betterNAS lets you mount remote machines as native Finder volumes on your Mac.
